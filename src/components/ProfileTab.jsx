@@ -1,9 +1,16 @@
 import { Card, Button, Input, TextArea, Select } from './ui.jsx';
 
 export default function ProfileTab({ t, user, setUser, onSave, onOpenPasswordModal }) {
+  const isEmptyProfile = !user.fullName && !user.email && !user.job && !user.address;
+
   return (
-    <Card className="max-w-3xl">
+    <Card className="mx-auto max-w-3xl">
       <h3 className="mb-5 text-base font-semibold text-slate-900 dark:text-slate-50">{t.profile}</h3>
+      {isEmptyProfile && (
+        <p className="mb-5 rounded-xl border border-cyan-200 bg-cyan-50/60 px-4 py-3 text-sm text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/5 dark:text-cyan-300">
+          {t.emptyProfileHint}
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           label={t.fullNameLabel}

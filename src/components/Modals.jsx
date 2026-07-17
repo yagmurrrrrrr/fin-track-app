@@ -1,8 +1,8 @@
 import { Modal, Button, Input, Select } from './ui.jsx';
 
-export function TransactionModal({ t, open, modalType, formData, setFormData, onSave, onClose }) {
+export function TransactionModal({ t, open, modalType, formData, setFormData, onSave, onClose, loading }) {
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} label={modalType === 'gelir' ? t.income : t.expense}>
       <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-50">
         {modalType === 'gelir' ? t.income : t.expense}
       </h3>
@@ -42,10 +42,11 @@ export function TransactionModal({ t, open, modalType, formData, setFormData, on
         </Select>
       </div>
       <div className="mt-5 space-y-2">
-        <Button className="w-full" onClick={onSave}>{t.save}</Button>
+        <Button className="w-full" loading={loading} onClick={onSave}>{t.save}</Button>
         <button
           onClick={onClose}
-          className="block w-full text-center text-sm text-slate-400 hover:underline dark:text-slate-500"
+          disabled={loading}
+          className="block w-full text-center text-sm text-slate-400 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-500"
         >
           {t.cancel}
         </button>
@@ -54,9 +55,9 @@ export function TransactionModal({ t, open, modalType, formData, setFormData, on
   );
 }
 
-export function PasswordModal({ t, open, passwordForm, setPasswordForm, onSave, onClose }) {
+export function PasswordModal({ t, open, passwordForm, setPasswordForm, onSave, onClose, loading }) {
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} label={t.changePasswordTitle}>
       <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-50">{t.changePasswordTitle}</h3>
       <div className="space-y-3">
         <Input
@@ -79,10 +80,11 @@ export function PasswordModal({ t, open, passwordForm, setPasswordForm, onSave, 
         />
       </div>
       <div className="mt-5 space-y-2">
-        <Button className="w-full" onClick={onSave}>{t.updatePasswordBtn}</Button>
+        <Button className="w-full" loading={loading} onClick={onSave}>{t.updatePasswordBtn}</Button>
         <button
           onClick={onClose}
-          className="block w-full text-center text-sm text-slate-400 hover:underline dark:text-slate-500"
+          disabled={loading}
+          className="block w-full text-center text-sm text-slate-400 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-500"
         >
           {t.cancel}
         </button>

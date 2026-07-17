@@ -11,6 +11,7 @@ import AnalyticsTab from './components/AnalyticsTab.jsx';
 import InvestTab from './components/InvestTab.jsx';
 import ProfileTab from './components/ProfileTab.jsx';
 import { TransactionModal, PasswordModal } from './components/Modals.jsx';
+import ToastContainer from './components/Toast.jsx';
 
 const API_URL = 'http://localhost:4000/api';
 const CONN_ERROR_TR = 'Sunucuya bağlanılamadı. Backend (server.cjs) çalışıyor mu?';
@@ -18,7 +19,7 @@ const CONN_ERROR_EN = 'Could not connect to the server. Is the backend (server.c
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authView, setAuthView] = useState('login');
+  const [authView, setAuthView] = useState('login'); // 'login' | 'register' | 'forgot'
   const [lang, setLang] = useState('tr');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -35,6 +36,25 @@ function App() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
 
+  // --- TOAST BİLDİRİMLERİ (alert() yerine) ---
+  const [toasts, setToasts] = useState([]);
+  const showToast = (message, variant = 'info') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, variant }]);
+  };
+  const dismissToast = (id) => setToasts(prev => prev.filter(tst => tst.id !== id));
+
+  // --- YÜKLENİYOR DURUMLARI (buton spinner'ları + çift gönderim engeli) ---
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSavingTx, setIsSavingTx] = useState(false);
+  const [isTrading, setIsTrading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // --- SES EFEKTİ SİSTEMİ ---
   const trinkSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3'));
 
   const playTrink = () => {
@@ -51,6 +71,7 @@ function App() {
     gida: 5000, kira: 15000, ulasim: 2000, teknoloji: 10000, eglence: 3000, fatura: 4000
   });
 
+  // --- GÜNCEL KURLAR (dolar/euro TCMB/ECB tabanlı, altın gram bazlı) ---
   const [rates, setRates] = useState({ dolar: 43.15, euro: 50.45, altin: 6150.20 });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [formData, setFormData] = useState({ desc: '', amt: '', cat: 'gida' });
@@ -59,6 +80,7 @@ function App() {
   const [quotePool, setQuotePool] = useState([]);
   const [motivationText, setMotivationText] = useState('');
 
+  // Tam söz listesini ara sıra tazele (60 sn'de bir) — sunucuyu her 5 sn'de yormamak için
   useEffect(() => {
     let cancelled = false;
     const fetchPool = async () => {
@@ -77,6 +99,7 @@ function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  // Her 5 sn'de, 1600+ sözlük listeden tamamen rastgele bir tanesini seç
   useEffect(() => {
     let cancelled = false;
 
@@ -140,6 +163,7 @@ function App() {
         console.log('Döviz kuru alınamadı, önceki değer korunuyor:', e);
       }
 
+      // Gram altın -> TRY: ons altın fiyatını (USD) çekip gram'a ve TL'ye çeviriyoruz
       try {
         const goldRes = await fetch('https://api.gold-api.com/price/XAU');
         const goldData = await goldRes.json();
@@ -161,10 +185,12 @@ function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  // --- GİRİŞ SONRASI: kullanıcının profil/cüzdan/limit/işlem verilerini API'den çek ---
   useEffect(() => {
     if (!isLoggedIn || !currentUsername) return;
 
     const loadData = async () => {
+      setIsLoadingData(true);
       try {
         const [userRes, walletRes, limitsRes, txRes] = await Promise.all([
           fetch(`${API_URL}/user/${currentUsername}`),
@@ -202,13 +228,16 @@ function App() {
         }
       } catch (e) {
         console.log('Kullanıcı verisi sunucudan alınamadı:', e);
-        alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+        showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+      } finally {
+        setIsLoadingData(false);
       }
     };
 
     loadData();
   }, [isLoggedIn, currentUsername]);
 
+  // --- Cüzdan / limit değişikliklerini sunucuya kaydet ---
   useEffect(() => {
     if (!currentUsername) return;
     const persist = async () => {
@@ -230,6 +259,7 @@ function App() {
     persist();
   }, [wallet, limits, currentUsername]);
 
+  // --- Profil değişikliklerini sunucuya kaydet ---
   useEffect(() => {
     if (!currentUsername) return;
     fetch(`${API_URL}/user/${currentUsername}`, {
@@ -242,6 +272,8 @@ function App() {
   const t = TEXTS[lang];
 
   const handleLogin = async () => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
     try {
       const res = await fetch(`${API_URL}/login`, {
         method: 'POST',
@@ -249,25 +281,29 @@ function App() {
         body: JSON.stringify({ username: loginData.user.trim(), password: loginData.pass.trim() })
       });
       if (!res.ok) {
-        alert(lang === 'tr' ? "Giriş başarısız!" : "Login failed!");
+        showToast(lang === 'tr' ? "Giriş başarısız!" : "Login failed!", 'error');
         return;
       }
       const data = await res.json();
       setCurrentUsername(data.user.username);
       setIsLoggedIn(true);
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
   const handleRegister = async () => {
+    if (isRegistering) return;
     const { username, password, confirm, fullName, securityAnswer } = registerData;
     if (!username.trim() || !password || !confirm || !fullName.trim() || !securityAnswer.trim()) {
-      alert(t.fillAllFields); return;
+      showToast(t.fillAllFields, 'warning'); return;
     }
-    if (password !== confirm) { alert(t.errPasswordMismatch); return; }
-    if (password.length < 3) { alert(t.errPasswordTooShort); return; }
+    if (password !== confirm) { showToast(t.errPasswordMismatch, 'warning'); return; }
+    if (password.length < 3) { showToast(t.errPasswordTooShort, 'warning'); return; }
 
+    setIsRegistering(true);
     try {
       const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
@@ -276,19 +312,23 @@ function App() {
           username: username.trim(), password, fullName: fullName.trim(), securityAnswer: securityAnswer.trim()
         })
       });
-      if (res.status === 409) { alert(t.errUsernameTaken); return; }
+      if (res.status === 409) { showToast(t.errUsernameTaken, 'error'); return; }
       if (!res.ok) throw new Error('register failed');
 
-      alert(t.registerSuccess);
+      showToast(t.registerSuccess, 'success');
       setLoginData({ user: username.trim(), pass: '' });
       setRegisterData({ username: '', password: '', confirm: '', fullName: '', securityAnswer: '' });
       setAuthView('login');
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
   const handleForgotVerify = async () => {
+    if (isVerifying) return;
+    setIsVerifying(true);
     try {
       const res = await fetch(`${API_URL}/forgot/verify`, {
         method: 'POST',
@@ -297,20 +337,24 @@ function App() {
           username: forgotData.username.trim(), securityAnswer: forgotData.securityAnswer.trim()
         })
       });
-      if (res.status === 404) { alert(t.errUserNotFound); return; }
-      if (res.status === 401) { alert(t.errWrongAnswer); return; }
+      if (res.status === 404) { showToast(t.errUserNotFound, 'error'); return; }
+      if (res.status === 401) { showToast(t.errWrongAnswer, 'error'); return; }
       if (!res.ok) throw new Error('verify failed');
       setForgotStep(2);
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const handleForgotReset = async () => {
+    if (isResetting) return;
     const { username, newPassword, confirm } = forgotData;
-    if (!newPassword || newPassword !== confirm) { alert(t.errPasswordMismatch); return; }
-    if (newPassword.length < 3) { alert(t.errPasswordTooShort); return; }
+    if (!newPassword || newPassword !== confirm) { showToast(t.errPasswordMismatch, 'warning'); return; }
+    if (newPassword.length < 3) { showToast(t.errPasswordTooShort, 'warning'); return; }
 
+    setIsResetting(true);
     try {
       const res = await fetch(`${API_URL}/forgot/reset`, {
         method: 'POST',
@@ -319,46 +363,54 @@ function App() {
       });
       if (!res.ok) throw new Error('reset failed');
 
-      alert(t.passwordResetSuccess);
+      showToast(t.passwordResetSuccess, 'success');
       setLoginData({ user: username.trim(), pass: '' });
       setForgotData({ username: '', securityAnswer: '', newPassword: '', confirm: '' });
       setForgotStep(1);
       setAuthView('login');
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsResetting(false);
     }
   };
 
   const handleChangePassword = async () => {
+    if (isChangingPassword) return;
     const { current, next, confirm } = passwordForm;
-    if (!current || !next || !confirm) { alert(t.fillAllFields); return; }
-    if (next !== confirm) { alert(t.errPasswordMismatch); return; }
-    if (next.length < 3) { alert(t.errPasswordTooShort); return; }
+    if (!current || !next || !confirm) { showToast(t.fillAllFields, 'warning'); return; }
+    if (next !== confirm) { showToast(t.errPasswordMismatch, 'warning'); return; }
+    if (next.length < 3) { showToast(t.errPasswordTooShort, 'warning'); return; }
 
+    setIsChangingPassword(true);
     try {
       const res = await fetch(`${API_URL}/user/${currentUsername}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword: current, newPassword: next })
       });
-      if (res.status === 401) { alert(t.errWrongCurrentPassword); return; }
+      if (res.status === 401) { showToast(t.errWrongCurrentPassword, 'error'); return; }
       if (!res.ok) throw new Error('change failed');
 
-      alert(t.passwordUpdated);
+      showToast(t.passwordUpdated, 'success');
       setPasswordForm({ current: '', next: '', confirm: '' });
       setShowPasswordModal(false);
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
   const handleSave = async () => {
+    if (isSavingTx) return;
     const val = parseFloat(formData.amt);
     if (!val) return;
     const final = modalType === 'gelir' ? val : -val;
     const dateStr = getDateStr();
     const newTx = { desc: formData.desc, amount: final, cat: formData.cat, date: dateStr };
 
+    setIsSavingTx(true);
     try {
       const res = await fetch(`${API_URL}/transactions/${currentUsername}`, {
         method: 'POST',
@@ -371,8 +423,11 @@ function App() {
       setWallet({ ...wallet, bakiye: wallet.bakiye + final });
       playTrink();
       setShowModal(false);
+      showToast(t.txSavedSuccess, 'success');
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsSavingTx(false);
     }
   };
 
@@ -387,17 +442,18 @@ function App() {
   };
 
   const handleTrade = async (asset, type) => {
+    if (isTrading) return;
     const amount = parseFloat(tradeAmounts[asset]);
     if (!amount || amount <= 0) return;
     const totalCost = rates[asset] * amount;
     const dateStr = getDateStr();
 
     if (type === 'al' && wallet.bakiye < totalCost) {
-      alert(lang === 'tr' ? "Yetersiz Bakiye!" : "Insufficient Balance!");
+      showToast(lang === 'tr' ? "Yetersiz Bakiye!" : "Insufficient Balance!", 'warning');
       return;
     }
     if (type === 'sat' && wallet[asset] < amount) {
-      alert(lang === 'tr' ? "Yetersiz Varlık!" : "Insufficient Assets!");
+      showToast(lang === 'tr' ? "Yetersiz Varlık!" : "Insufficient Assets!", 'warning');
       return;
     }
 
@@ -405,6 +461,7 @@ function App() {
     const txAmount = type === 'al' ? -totalCost : totalCost;
     const newTx = { desc, amount: txAmount, cat: 'yatirim', date: dateStr };
 
+    setIsTrading(true);
     try {
       const res = await fetch(`${API_URL}/transactions/${currentUsername}`, {
         method: 'POST',
@@ -421,13 +478,16 @@ function App() {
       }
       setTransactions([{ id: data.id, ...newTx }, ...transactions]);
       playTrink();
+      showToast(t.tradeSuccess, 'success');
     } catch (e) {
-      alert(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN);
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsTrading(false);
     }
   };
 
   const handleProfileSave = () => {
-    alert(t.updated);
+    showToast(t.updated, 'success');
   };
 
   const categoryBreakdown = useMemo(() => {
@@ -473,29 +533,51 @@ function App() {
 
   if (!isLoggedIn) {
     return (
-      <AuthScreen
-        t={t}
-        isDarkMode={isDarkMode}
-        authView={authView}
-        setAuthView={setAuthView}
-        loginData={loginData}
-        setLoginData={setLoginData}
-        handleLogin={handleLogin}
-        registerData={registerData}
-        setRegisterData={setRegisterData}
-        handleRegister={handleRegister}
-        forgotStep={forgotStep}
-        setForgotStep={setForgotStep}
-        forgotData={forgotData}
-        setForgotData={setForgotData}
-        handleForgotVerify={handleForgotVerify}
-        handleForgotReset={handleForgotReset}
-      />
+      <>
+        <AuthScreen
+          t={t}
+          isDarkMode={isDarkMode}
+          authView={authView}
+          setAuthView={setAuthView}
+          loginData={loginData}
+          setLoginData={setLoginData}
+          handleLogin={handleLogin}
+          loginLoading={isLoggingIn}
+          registerData={registerData}
+          setRegisterData={setRegisterData}
+          handleRegister={handleRegister}
+          registerLoading={isRegistering}
+          forgotStep={forgotStep}
+          setForgotStep={setForgotStep}
+          forgotData={forgotData}
+          setForgotData={setForgotData}
+          handleForgotVerify={handleForgotVerify}
+          verifyLoading={isVerifying}
+          handleForgotReset={handleForgotReset}
+          resetLoading={isResetting}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
+  }
+
+  if (isLoadingData) {
+    return (
+      <div className={isDarkMode ? 'dark' : ''}>
+        <div className="flex h-screen w-screen items-center justify-center bg-slate-100 dark:bg-slate-950">
+          <div className="flex flex-col items-center gap-3">
+            <span className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" aria-hidden="true" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">{lang === 'tr' ? 'Yükleniyor...' : 'Loading...'}</p>
+          </div>
+        </div>
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
     );
   }
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <div className="flex h-screen w-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
         <Sidebar
           t={t}
@@ -526,52 +608,56 @@ function App() {
           />
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-            {activeTab === 'dashboard' && (
-              <DashboardTab
-                t={t}
-                wallet={wallet}
-                limits={limits}
-                transactions={transactions}
-                onOpenIncome={() => { setModalType('gelir'); setFormData({ ...formData, cat: 'maas' }); setShowModal(true); }}
-                onOpenExpense={() => { setModalType('gider'); setFormData({ ...formData, cat: 'gida' }); setShowModal(true); }}
-              />
-            )}
+            <div className="mx-auto w-full max-w-screen-2xl">
+              {activeTab === 'dashboard' && (
+                <DashboardTab
+                  t={t}
+                  wallet={wallet}
+                  limits={limits}
+                  transactions={transactions}
+                  onOpenIncome={() => { setModalType('gelir'); setFormData({ ...formData, cat: 'maas' }); setShowModal(true); }}
+                  onOpenExpense={() => { setModalType('gider'); setFormData({ ...formData, cat: 'gida' }); setShowModal(true); }}
+                  onViewAll={() => setActiveTab('transactions')}
+                />
+              )}
 
-            {activeTab === 'transactions' && (
-              <TransactionsTab t={t} transactions={transactions} deleteTransaction={deleteTransaction} />
-            )}
+              {activeTab === 'transactions' && (
+                <TransactionsTab t={t} transactions={transactions} deleteTransaction={deleteTransaction} />
+              )}
 
-            {activeTab === 'analytics' && (
-              <AnalyticsTab
-                t={t}
-                isDarkMode={isDarkMode}
-                categoryBreakdown={categoryBreakdown}
-                monthlyTrend={monthlyTrend}
-                assetAllocation={assetAllocation}
-                netWorth={netWorth}
-              />
-            )}
+              {activeTab === 'analytics' && (
+                <AnalyticsTab
+                  t={t}
+                  isDarkMode={isDarkMode}
+                  categoryBreakdown={categoryBreakdown}
+                  monthlyTrend={monthlyTrend}
+                  assetAllocation={assetAllocation}
+                  netWorth={netWorth}
+                />
+              )}
 
-            {activeTab === 'invest' && (
-              <InvestTab
-                t={t}
-                wallet={wallet}
-                rates={rates}
-                tradeAmounts={tradeAmounts}
-                setTradeAmounts={setTradeAmounts}
-                handleTrade={handleTrade}
-              />
-            )}
+              {activeTab === 'invest' && (
+                <InvestTab
+                  t={t}
+                  wallet={wallet}
+                  rates={rates}
+                  tradeAmounts={tradeAmounts}
+                  setTradeAmounts={setTradeAmounts}
+                  handleTrade={handleTrade}
+                  loading={isTrading}
+                />
+              )}
 
-            {activeTab === 'profile' && (
-              <ProfileTab
-                t={t}
-                user={user}
-                setUser={setUser}
-                onSave={handleProfileSave}
-                onOpenPasswordModal={() => setShowPasswordModal(true)}
-              />
-            )}
+              {activeTab === 'profile' && (
+                <ProfileTab
+                  t={t}
+                  user={user}
+                  setUser={setUser}
+                  onSave={handleProfileSave}
+                  onOpenPasswordModal={() => setShowPasswordModal(true)}
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -583,6 +669,7 @@ function App() {
           setFormData={setFormData}
           onSave={handleSave}
           onClose={() => setShowModal(false)}
+          loading={isSavingTx}
         />
 
         <PasswordModal
@@ -592,6 +679,7 @@ function App() {
           setPasswordForm={setPasswordForm}
           onSave={handleChangePassword}
           onClose={() => setShowPasswordModal(false)}
+          loading={isChangingPassword}
         />
       </div>
     </div>

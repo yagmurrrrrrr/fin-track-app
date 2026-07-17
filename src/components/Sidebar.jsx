@@ -1,4 +1,5 @@
-import { Button } from './ui.jsx';
+import { useState } from 'react';
+import { Button, NumberStepper } from './ui.jsx';
 
 const TABS = [
   { key: 'dashboard', icon: '📊' },
@@ -14,6 +15,8 @@ export default function Sidebar({
   lang, setLang, isDarkMode, setIsDarkMode,
   onLogout, mobileOpen, onCloseMobile
 }) {
+  const [limitsOpen, setLimitsOpen] = useState(false);
+
   return (
     <>
       <div
@@ -32,7 +35,7 @@ export default function Sidebar({
           <h2 className="text-lg font-bold tracking-wide text-cyan-600 dark:text-cyan-400">{t.appName}</h2>
           <button
             onClick={onCloseMobile}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors duration-150 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition-colors duration-150 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 md:hidden"
             aria-label="Close menu"
           >
             ✕
@@ -56,22 +59,38 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600 dark:text-cyan-400">{t.limits}</p>
-          <div className="space-y-2">
-            {Object.keys(limits).map(cat => (
-              <div key={cat} className="flex items-center justify-between gap-2">
-                <span className="text-xs text-slate-500 dark:text-slate-400">{t[cat]?.toUpperCase() || cat.toUpperCase()}</span>
-                <input
-                  type="number"
-                  value={limits[cat]}
-                  onChange={e => setLimits({ ...limits, [cat]: e.target.value })}
-                  onBlur={() => saveLimits(limits)}
-                  className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-xs text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
-                />
-              </div>
-            ))}
-          </div>
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+          <button
+            type="button"
+            onClick={() => setLimitsOpen(o => !o)}
+            aria-expanded={limitsOpen}
+            className="flex w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/50"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wide text-cyan-600 dark:text-cyan-400">{t.limits}</span>
+            <span
+              aria-hidden="true"
+              className={`text-slate-400 transition-transform duration-200 dark:text-slate-500 ${limitsOpen ? 'rotate-180' : ''}`}
+            >
+              ▾
+            </span>
+          </button>
+          {limitsOpen && (
+            <div className="max-h-64 space-y-2 overflow-y-auto px-4 pb-4">
+              {Object.keys(limits).map(cat => (
+                <div key={cat} className="flex flex-col gap-1.5">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{t[cat]?.toUpperCase() || cat.toUpperCase()}</span>
+                  <NumberStepper
+                    compact
+                    value={limits[cat]}
+                    min={0}
+                    step={100}
+                    onChange={val => setLimits({ ...limits, [cat]: val })}
+                    onBlur={() => saveLimits(limits)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-4 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-700">

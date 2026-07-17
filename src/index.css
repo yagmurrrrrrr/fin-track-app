@@ -18,3 +18,15 @@ body {
 .animate-marquee {
   animation: marquee 30s linear infinite;
 }
+
+/* NumberStepper: native tarayıcı spinner oklarını gizler, kendi +/- butonlarımızı kullanıyoruz */
+.num-input-clean::-webkit-outer-spin-button,
+.num-input-clean::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.num-input-clean {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

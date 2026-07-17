@@ -46,7 +46,8 @@ export const TEXTS = {
     limits: "LİMİT AYARLARI", logout: "Çıkış Yap", welcome: "Hoş Geldiniz", totalBalance: "GÜNCEL TL BAKİYE",
     income: "Gelir Ekle", expense: "Gider Ekle", limitStatus: "Harcama & Limit Durumu", assets: "Varlık Detayları",
     tradeTitle: "Döviz ve Altın Ticareti", tradeBalance: "Bakiyeniz", buy: "Al", sell: "Sat",
-    save: "Kaydet", cancel: "Vazgeç", historyIn: "Gelir Geçmişi", historyOut: "Gider Geçmişi",tradeHistory: "Döviz / Altın İşlemleri",
+    save: "Kaydet", cancel: "Vazgeç", historyIn: "Gelir Geçmişi", historyOut: "Gider Geçmişi",
+    tradeHistory: "Döviz / Altın İşlemleri",
     desc: "Açıklama", amt: "Tutar", cat: "Kategori", update: "Bilgileri Kaydet", date: "Tarih",
     maas: "Maaş", yan_gelir: "Yan Gelir", prim: "Prim", faiz: "Faiz/Borsa", hediye: "Hediye",
     gida: "Gıda", kira: "Kira", ulasim: "Ulaşım", teknoloji: "Teknoloji", eglence: "Eğlence",
@@ -68,14 +69,25 @@ export const TEXTS = {
     errWrongAnswer: "Güvenlik sorusu cevabı yanlış.", errWrongCurrentPassword: "Mevcut şifre yanlış.",
     registerSuccess: "Kayıt başarılı! Şimdi giriş yapabilirsin.", passwordResetSuccess: "Şifren güncellendi, giriş yapabilirsin.",
     passwordUpdated: "Şifre güncellendi!", fillAllFields: "Lütfen tüm alanları doldurun.", updated: "Güncellendi!",
-    appName: "FIN-TRACK", appTagline: "Kişisel finans takibi"
+    appName: "FIN-TRACK", appTagline: "Kişisel finans takibi",
+    emptyIncomeTitle: "Henüz gelir yok", emptyIncomeHint: "İlk gelirini ekleyerek bakiyeni büyütmeye başla.",
+    emptyExpenseTitle: "Henüz gider yok", emptyExpenseHint: "Harcamalarını eklemeye başladığında burada görünecek.",
+    emptyTradeTitle: "Henüz işlem yapmadın", emptyTradeHint: "Döviz veya altın alıp sattığında geçmişin burada birikecek.",
+    emptyAnalyticsTitle: "Henüz analiz edilecek veri yok", emptyAnalyticsHint: "Birkaç işlem ekle, grafikler burada otomatik oluşsun.",
+    emptyInvestHint: "Henüz yatırımın yok — ilk alımını yaparak başla 🚀",
+    emptyProfileHint: "Profilini tamamla — bilgilerini ekleyerek hesabını kişiselleştir.",
+    dashboardWelcomeTitle: "Finansal yolculuğuna hoş geldin 👋",
+    dashboardWelcomeHint: "İlk gelir ya da giderini ekleyerek panoyu keşfetmeye başla.",
+    txSavedSuccess: "İşlem kaydedildi!", tradeSuccess: "İşlem başarıyla tamamlandı!",
+    recentTransactions: "Son İşlemler", viewAll: "Tümünü Gör"
   },
   en: {
     dashboard: "Dashboard", transactions: "Transactions", invest: "Trade", profile: "Profile",
     limits: "LIMIT SETTINGS", logout: "Log Out", welcome: "Welcome", totalBalance: "TOTAL TL BALANCE",
     income: "Add Income", expense: "Add Expense", limitStatus: "Spending & Limit Status", assets: "Asset Details",
     tradeTitle: "Currency & Gold Trade", tradeBalance: "Your Balance", buy: "Buy", sell: "Sell",
-    save: "Save", cancel: "Cancel", historyIn: "Income History", historyOut: "Expense History",tradeHistory: "Currency / Gold Transactions",
+    save: "Save", cancel: "Cancel", historyIn: "Income History", historyOut: "Expense History",
+    tradeHistory: "Currency / Gold Transactions",
     desc: "Description", amt: "Amount", cat: "Category", update: "Save Changes", date: "Date",
     maas: "Salary", yan_gelir: "Side Income", prim: "Bonus", faiz: "Interest/Stock", hediye: "Gift",
     gida: "Food", kira: "Rent", ulasim: "Transport", teknoloji: "Tech", eglence: "Fun",
@@ -97,7 +109,17 @@ export const TEXTS = {
     errWrongAnswer: "Security answer is incorrect.", errWrongCurrentPassword: "Current password is incorrect.",
     registerSuccess: "Registered successfully! You can log in now.", passwordResetSuccess: "Password updated, you can log in now.",
     passwordUpdated: "Password updated!", fillAllFields: "Please fill in all fields.", updated: "Updated!",
-    appName: "FIN-TRACK", appTagline: "Personal finance tracker"
+    appName: "FIN-TRACK", appTagline: "Personal finance tracker",
+    emptyIncomeTitle: "No income yet", emptyIncomeHint: "Add your first income to start growing your balance.",
+    emptyExpenseTitle: "No expenses yet", emptyExpenseHint: "Your spending will show up here once you add some.",
+    emptyTradeTitle: "No trades yet", emptyTradeHint: "Buy or sell currency and gold to build your trade history here.",
+    emptyAnalyticsTitle: "Nothing to analyze yet", emptyAnalyticsHint: "Add a few transactions and your charts will fill in automatically.",
+    emptyInvestHint: "No investments yet — make your first trade to get started 🚀",
+    emptyProfileHint: "Complete your profile — add your details to personalize your account.",
+    dashboardWelcomeTitle: "Welcome to your financial journey 👋",
+    dashboardWelcomeHint: "Add your first income or expense to start exploring your dashboard.",
+    txSavedSuccess: "Transaction saved!", tradeSuccess: "Trade completed successfully!",
+    recentTransactions: "Recent Transactions", viewAll: "View All"
   }
 };
 

@@ -3,9 +3,10 @@ import { Button, Input } from './ui.jsx';
 export default function AuthScreen({
   t, isDarkMode,
   authView, setAuthView,
-  loginData, setLoginData, handleLogin,
-  registerData, setRegisterData, handleRegister,
-  forgotStep, setForgotStep, forgotData, setForgotData, handleForgotVerify, handleForgotReset
+  loginData, setLoginData, handleLogin, loginLoading,
+  registerData, setRegisterData, handleRegister, registerLoading,
+  forgotStep, setForgotStep, forgotData, setForgotData,
+  handleForgotVerify, verifyLoading, handleForgotReset, resetLoading
 }) {
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -17,7 +18,7 @@ export default function AuthScreen({
         .auth-card { animation: fadeInUp 0.5s ease-out; }
       `}</style>
 
-      <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-slate-200 px-4 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="relative flex min-h-screen w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-slate-200 px-4 py-8 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/30 blur-3xl dark:bg-cyan-500/10" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-emerald-400/30 blur-3xl dark:bg-emerald-500/10" />
 
@@ -47,11 +48,11 @@ export default function AuthScreen({
                 value={loginData.pass}
                 onChange={e => setLoginData({ ...loginData, pass: e.target.value })}
               />
-              <Button className="w-full" onClick={handleLogin}>{t.loginTitle}</Button>
+              <Button className="w-full" loading={loginLoading} onClick={handleLogin}>{t.loginTitle}</Button>
               <div className="space-y-2 pt-2 text-center text-sm">
                 <button
                   onClick={() => setAuthView('forgot')}
-                  className="block w-full text-cyan-600 hover:underline dark:text-cyan-400"
+                  className="block w-full text-cyan-700 hover:underline dark:text-cyan-400"
                 >
                   {t.forgotPassword}
                 </button>
@@ -94,7 +95,7 @@ export default function AuthScreen({
                 value={registerData.securityAnswer}
                 onChange={e => setRegisterData({ ...registerData, securityAnswer: e.target.value })}
               />
-              <Button className="w-full" onClick={handleRegister}>{t.registerTitle}</Button>
+              <Button className="w-full" loading={registerLoading} onClick={handleRegister}>{t.registerTitle}</Button>
               <button
                 onClick={() => setAuthView('login')}
                 className="block w-full pt-2 text-center text-sm text-slate-500 hover:underline dark:text-slate-400"
@@ -118,7 +119,7 @@ export default function AuthScreen({
                     value={forgotData.securityAnswer}
                     onChange={e => setForgotData({ ...forgotData, securityAnswer: e.target.value })}
                   />
-                  <Button className="w-full" onClick={handleForgotVerify}>{t.verifyBtn}</Button>
+                  <Button className="w-full" loading={verifyLoading} onClick={handleForgotVerify}>{t.verifyBtn}</Button>
                 </>
               ) : (
                 <>
@@ -134,7 +135,7 @@ export default function AuthScreen({
                     value={forgotData.confirm}
                     onChange={e => setForgotData({ ...forgotData, confirm: e.target.value })}
                   />
-                  <Button className="w-full" onClick={handleForgotReset}>{t.resetPasswordBtn}</Button>
+                  <Button className="w-full" loading={resetLoading} onClick={handleForgotReset}>{t.resetPasswordBtn}</Button>
                 </>
               )}
               <button
