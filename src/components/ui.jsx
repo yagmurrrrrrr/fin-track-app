@@ -19,8 +19,26 @@ const BUTTON_VARIANTS = {
   success: 'bg-emerald-600 text-white hover:bg-emerald-700',
   danger: 'bg-red-600 text-white hover:bg-red-700',
   ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700',
-  outline: 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700'
+  outline: 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700',
+  // Dolu kırmızı "Çıkış Yap" butonu, en az basılan aksiyon olmasına rağmen görsel ağırlıkta
+  // ana içerikle yarışıyordu. Rengi koruyup dolgusunu kaldırdık — hâlâ net bir tehlike/çıkış
+  // sinyali veriyor ama artık sayfanın odağını çalmıyor.
+  dangerOutline: 'border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10'
 };
+
+// Varlık kartlarındaki (Dolar/Euro/Altın) emoji ikonlar (💵💶🟡) uygulamanın geri kalanındaki
+// düz/flat tasarım diliyle uyuşmuyordu ("clipart" hissi). Yerine, kartın kendi rengiyle eşleşen
+// dolgu bir rozet içinde sade bir sembol/kısaltma kullanıyoruz — Revolut/Wise tarzı flat ikon kalıbı.
+export function AssetIcon({ symbol, bgClass, className = '' }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex items-center justify-center rounded-full font-bold text-white ${bgClass} ${className}`}
+    >
+      {symbol}
+    </span>
+  );
+}
 
 export function Button({ variant = 'primary', className = '', children, loading = false, disabled = false, ...props }) {
   return (
@@ -64,7 +82,7 @@ export function TextArea({ label, className = '', ...props }) {
 
 // Native input[type=number] ok butonları uygulamanın tasarım diliyle uyuşmuyordu (tarayıcı varsayılanı,
 // stillenemiyor). Bunun yerine kendi +/- butonlarımızı çiziyoruz, native spinner'ı .num-input-clean ile gizliyoruz.
-export function NumberStepper({ value, onChange, min, max, step = 1, compact = false, className = '', ...props }) {
+export function NumberStepper({ value, onChange, min, max, step = 1, compact = false, className = '', ariaLabel, decreaseLabel = 'Azalt', increaseLabel = 'Artır', ...props }) {
   const numValue = parseFloat(value);
   const safeValue = Number.isFinite(numValue) ? numValue : 0;
 
@@ -76,14 +94,18 @@ export function NumberStepper({ value, onChange, min, max, step = 1, compact = f
   };
 
   const btnSize = compact ? 'h-8 w-8 text-sm' : 'h-11 w-11 text-base';
+  // compact varyant 32px'de kalıyor (dar alanlarda görsel yoğunluk için) ama WCAG 2.5.5'in
+  // 44px dokunma hedefi şartını karşılamak için görünmez bir "before" alanıyla hit-area'yı genişletiyoruz.
+  const hitAreaExpand = compact ? "before:absolute before:-inset-1.5 before:content-['']" : '';
+  const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-900';
 
   return (
     <div className={`inline-flex w-full items-stretch overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900 ${className}`}>
       <button
         type="button"
         onClick={() => onChange(String(clamp(safeValue - step)))}
-        aria-label="Azalt"
-        className={`flex flex-shrink-0 items-center justify-center font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 ${btnSize}`}
+        aria-label={ariaLabel ? `${ariaLabel} — ${decreaseLabel}` : decreaseLabel}
+        className={`relative flex flex-shrink-0 items-center justify-center font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 ${btnSize} ${hitAreaExpand} ${focusRing}`}
       >
         −
       </button>
@@ -91,19 +113,54 @@ export function NumberStepper({ value, onChange, min, max, step = 1, compact = f
         type="number"
         value={value}
         onChange={e => onChange(e.target.value)}
+        aria-label={ariaLabel}
         className={`num-input-clean w-full min-w-0 border-x border-slate-300 bg-transparent px-1 text-center text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-cyan-500 dark:border-slate-600 dark:text-slate-50 ${compact ? 'py-1' : 'py-2'}`}
         {...props}
       />
       <button
         type="button"
         onClick={() => onChange(String(clamp(safeValue + step)))}
-        aria-label="Artır"
-        className={`flex flex-shrink-0 items-center justify-center font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 ${btnSize}`}
+        aria-label={ariaLabel ? `${ariaLabel} — ${increaseLabel}` : increaseLabel}
+        className={`relative flex flex-shrink-0 items-center justify-center font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 ${btnSize} ${hitAreaExpand} ${focusRing}`}
       >
         +
       </button>
     </div>
   );
+}
+
+// Finansal kartlarda "geçen aya göre arttı mı azaldı mı" bilgisini gösteren küçük rozet.
+// direction: 'up' | 'down' | 'flat' — renk semantiği gelir/gider ile aynı (yeşil=iyi, kırmızı=kötü, gri=nötr).
+export function TrendBadge({ direction = 'flat', label, caption, className = '', captionClassName = 'text-slate-400 dark:text-slate-500', directionWord }) {
+  const TONE = {
+    up: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+    down: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+    flat: 'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400'
+  };
+  const ARROW = { up: '▲', down: '▼', flat: '→' };
+  // Yön bilgisi sadece renk + aria-hidden okla veriliyordu — ekran okuyucu kullanıcıları
+  // "arttı mı azaldı mı" bilgisini hiç duymuyordu. Tüm rozeti tek bir açıklayıcı aria-label
+  // altında topluyoruz, içindeki görünür parçaları aria-hidden yapıyoruz (çift okuma olmasın).
+  const fullLabel = [directionWord, label, caption].filter(Boolean).join(', ');
+
+  return (
+    <span className={`inline-flex items-center gap-2 ${className}`} role="img" aria-label={fullLabel || undefined}>
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${TONE[direction]}`} aria-hidden="true">
+        <span>{ARROW[direction]}</span>
+        {label}
+      </span>
+      {/* caption'ın rengi çağıran taraftan özelleştirilebilir — kart arka planı koyu gradient olduğunda
+          varsayılan gri metin okunmaz hale geliyordu (ölçüm: slate-500 / cyan-700 = 1.13:1). */}
+      {caption && <span className={`text-xs ${captionClassName}`} aria-hidden="true">{caption}</span>}
+    </span>
+  );
+}
+
+// İçeriğin şeklini taklit eden yüklenme placeholder'ı. Tek bir tam-sayfa spinner yerine
+// kullanıcı "dashboard'un neye benzeyeceğini" görür — algılanan performans için etkili,
+// yaygın bir SaaS kalıbı (Linear/Notion/GitHub). Sade bir CSS animasyonu, yeni bağımlılık yok.
+export function Skeleton({ className = '' }) {
+  return <div className={`animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700 ${className}`} aria-hidden="true" />;
 }
 
 export function Select({ label, className = '', children, ...props }) {

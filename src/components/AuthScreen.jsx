@@ -35,58 +35,69 @@ export default function AuthScreen({
             </p>
           </div>
 
+          {/* Her görünüm artık gerçek bir <form onSubmit>: Enter tuşuyla gönderim çalışır (önceden
+              butonlar sadece onClick'e bağlıydı, klavyeyle şifre alanında Enter'a basmak hiçbir şey
+              yapmıyordu). autoComplete öznitelikleri şifre yöneticilerinin alanları doğru tanımasını sağlar. */}
           {authView === 'login' && (
-            <div className="space-y-4">
+            <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleLogin(); }}>
               <Input
                 label={t.usernameLabel}
+                autoComplete="username"
                 value={loginData.user}
                 onChange={e => setLoginData({ ...loginData, user: e.target.value })}
               />
               <Input
                 label={t.passwordLabel}
                 type="password"
+                autoComplete="current-password"
                 value={loginData.pass}
                 onChange={e => setLoginData({ ...loginData, pass: e.target.value })}
               />
-              <Button className="w-full" loading={loginLoading} onClick={handleLogin}>{t.loginTitle}</Button>
+              <Button type="submit" className="w-full" loading={loginLoading}>{t.loginTitle}</Button>
               <div className="space-y-2 pt-2 text-center text-sm">
                 <button
+                  type="button"
                   onClick={() => setAuthView('forgot')}
                   className="block w-full text-cyan-700 hover:underline dark:text-cyan-400"
                 >
                   {t.forgotPassword}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setAuthView('register')}
                   className="block w-full text-slate-500 hover:underline dark:text-slate-400"
                 >
                   {t.noAccount}
                 </button>
               </div>
-            </div>
+            </form>
           )}
 
           {authView === 'register' && (
-            <div className="space-y-4">
+            <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleRegister(); }}>
               <Input
                 label={t.fullNameLabel}
+                autoComplete="name"
                 value={registerData.fullName}
                 onChange={e => setRegisterData({ ...registerData, fullName: e.target.value })}
               />
               <Input
                 label={t.usernameLabel}
+                autoComplete="username"
                 value={registerData.username}
                 onChange={e => setRegisterData({ ...registerData, username: e.target.value })}
               />
               <Input
                 label={t.passwordLabel}
                 type="password"
+                autoComplete="new-password"
                 value={registerData.password}
                 onChange={e => setRegisterData({ ...registerData, password: e.target.value })}
               />
               <Input
                 label={t.confirmPasswordLabel}
                 type="password"
+                autoComplete="new-password"
                 value={registerData.confirm}
                 onChange={e => setRegisterData({ ...registerData, confirm: e.target.value })}
               />
@@ -95,22 +106,31 @@ export default function AuthScreen({
                 value={registerData.securityAnswer}
                 onChange={e => setRegisterData({ ...registerData, securityAnswer: e.target.value })}
               />
-              <Button className="w-full" loading={registerLoading} onClick={handleRegister}>{t.registerTitle}</Button>
+              <Button type="submit" className="w-full" loading={registerLoading}>{t.registerTitle}</Button>
               <button
+                type="button"
                 onClick={() => setAuthView('login')}
                 className="block w-full pt-2 text-center text-sm text-slate-500 hover:underline dark:text-slate-400"
               >
                 {t.haveAccount}
               </button>
-            </div>
+            </form>
           )}
 
           {authView === 'forgot' && (
-            <div className="space-y-4">
+            <form
+              className="space-y-4"
+              onSubmit={e => {
+                e.preventDefault();
+                if (forgotStep === 1) handleForgotVerify();
+                else handleForgotReset();
+              }}
+            >
               {forgotStep === 1 ? (
                 <>
                   <Input
                     label={t.usernameLabel}
+                    autoComplete="username"
                     value={forgotData.username}
                     onChange={e => setForgotData({ ...forgotData, username: e.target.value })}
                   />
@@ -119,32 +139,35 @@ export default function AuthScreen({
                     value={forgotData.securityAnswer}
                     onChange={e => setForgotData({ ...forgotData, securityAnswer: e.target.value })}
                   />
-                  <Button className="w-full" loading={verifyLoading} onClick={handleForgotVerify}>{t.verifyBtn}</Button>
+                  <Button type="submit" className="w-full" loading={verifyLoading}>{t.verifyBtn}</Button>
                 </>
               ) : (
                 <>
                   <Input
                     label={t.newPasswordLabel}
                     type="password"
+                    autoComplete="new-password"
                     value={forgotData.newPassword}
                     onChange={e => setForgotData({ ...forgotData, newPassword: e.target.value })}
                   />
                   <Input
                     label={t.confirmNewPasswordLabel}
                     type="password"
+                    autoComplete="new-password"
                     value={forgotData.confirm}
                     onChange={e => setForgotData({ ...forgotData, confirm: e.target.value })}
                   />
-                  <Button className="w-full" loading={resetLoading} onClick={handleForgotReset}>{t.resetPasswordBtn}</Button>
+                  <Button type="submit" className="w-full" loading={resetLoading}>{t.resetPasswordBtn}</Button>
                 </>
               )}
               <button
+                type="button"
                 onClick={() => { setAuthView('login'); setForgotStep(1); }}
                 className="block w-full pt-2 text-center text-sm text-slate-500 hover:underline dark:text-slate-400"
               >
                 {t.backToLogin}
               </button>
-            </div>
+            </form>
           )}
         </div>
       </div>

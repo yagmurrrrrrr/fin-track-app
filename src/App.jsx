@@ -12,6 +12,7 @@ import InvestTab from './components/InvestTab.jsx';
 import ProfileTab from './components/ProfileTab.jsx';
 import { TransactionModal, PasswordModal } from './components/Modals.jsx';
 import ToastContainer from './components/Toast.jsx';
+import { Skeleton } from './components/ui.jsx';
 
 const API_URL = 'http://localhost:4000/api';
 const CONN_ERROR_TR = 'Sunucuya bağlanılamadı. Backend (server.cjs) çalışıyor mu?';
@@ -270,6 +271,14 @@ function App() {
   }, [user, currentUsername]);
 
   const t = TEXTS[lang];
+
+  // Dil değiştiğinde <html lang> ve sekme başlığı da güncellensin — WCAG 3.1.1 (Language of Page)
+  // uyarınca, sayfa içeriği İngilizce'ye geçtiğinde lang="tr" olarak kalması ekran okuyucuların
+  // yanlış telaffuz/dil motoru kullanmasına yol açıyordu.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.title = t.appName;
+  }, [lang, t.appName]);
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
@@ -531,6 +540,28 @@ function App() {
 
   const netWorth = assetAllocation.reduce((sum, r) => sum + r.value, 0);
 
+  // Bu ayın net değişimini (gelir - gider) geçen ayla kıyaslar; Dashboard'daki TrendBadge için.
+  // Yeterli veri yoksa (geçen ay hiç işlem yoksa) null döner ve rozet hiç gösterilmez.
+  const balanceTrend = useMemo(() => {
+    const now = new Date();
+    const thisKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prevRef = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevKey = `${prevRef.getFullYear()}-${String(prevRef.getMonth() + 1).padStart(2, '0')}`;
+
+    let thisNet = 0, prevNet = 0, thisHas = false, prevHas = false;
+    transactions.forEach(tr => {
+      const key = monthKeyFromDate(tr.date);
+      if (key === thisKey) { thisNet += tr.amount; thisHas = true; }
+      else if (key === prevKey) { prevNet += tr.amount; prevHas = true; }
+    });
+
+    if (!thisHas || !prevHas || prevNet === 0) return null;
+
+    const change = ((thisNet - prevNet) / Math.abs(prevNet)) * 100;
+    const direction = change > 0.5 ? 'up' : change < -0.5 ? 'down' : 'flat';
+    return { direction, percent: Math.round(Math.abs(change)) };
+  }, [transactions]);
+
   if (!isLoggedIn) {
     return (
       <>
@@ -562,12 +593,38 @@ function App() {
   }
 
   if (isLoadingData) {
+    // Tek bir dönen spinner yerine, Dashboard'un gerçek şeklini taklit eden bir iskelet gösteriyoruz —
+    // kullanıcı "bir şeyler yükleniyor" değil "dashboard'um birazdan burada olacak" hissini alıyor,
+    // algılanan performans artıyor (Linear/Notion/GitHub'ta yaygın kalıp). aria-busy ile ekran okuyucuya
+    // da bu alanın henüz hazır olmadığı bildiriliyor.
     return (
       <div className={isDarkMode ? 'dark' : ''}>
-        <div className="flex h-screen w-screen items-center justify-center bg-slate-100 dark:bg-slate-950">
-          <div className="flex flex-col items-center gap-3">
-            <span className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" aria-hidden="true" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">{lang === 'tr' ? 'Yükleniyor...' : 'Loading...'}</p>
+        <div
+          className="flex h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950"
+          role="status"
+          aria-busy="true"
+          aria-label={lang === 'tr' ? 'Yükleniyor' : 'Loading'}
+        >
+          <div className="hidden w-72 flex-shrink-0 border-r border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900 md:block">
+            <Skeleton className="mb-8 h-6 w-32" />
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}
+            </div>
+          </div>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Skeleton className="h-11 w-full rounded-none" />
+            <div className="border-b border-slate-200 bg-white px-6 py-5 dark:border-slate-700 dark:bg-slate-800 sm:px-10">
+              <Skeleton className="h-6 w-56" />
+            </div>
+            <div className="flex-1 overflow-hidden p-4 sm:p-6 lg:p-8">
+              <div className="mx-auto grid w-full max-w-screen-2xl grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
+                <div className="flex flex-col gap-6">
+                  <Skeleton className="h-40 w-full rounded-2xl" />
+                  <Skeleton className="h-28 w-full rounded-2xl" />
+                </div>
+                <Skeleton className="h-72 w-full rounded-2xl" />
+              </div>
+            </div>
           </div>
         </div>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -608,56 +665,57 @@ function App() {
           />
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-            <div className="mx-auto w-full max-w-screen-2xl">
-              {activeTab === 'dashboard' && (
-                <DashboardTab
-                  t={t}
-                  wallet={wallet}
-                  limits={limits}
-                  transactions={transactions}
-                  onOpenIncome={() => { setModalType('gelir'); setFormData({ ...formData, cat: 'maas' }); setShowModal(true); }}
-                  onOpenExpense={() => { setModalType('gider'); setFormData({ ...formData, cat: 'gida' }); setShowModal(true); }}
-                  onViewAll={() => setActiveTab('transactions')}
-                />
-              )}
+           <div className="mx-auto w-full max-w-screen-2xl">
+            {activeTab === 'dashboard' && (
+              <DashboardTab
+                t={t}
+                wallet={wallet}
+                limits={limits}
+                transactions={transactions}
+                onOpenIncome={() => { setModalType('gelir'); setFormData({ ...formData, cat: 'maas' }); setShowModal(true); }}
+                onOpenExpense={() => { setModalType('gider'); setFormData({ ...formData, cat: 'gida' }); setShowModal(true); }}
+                onViewAll={() => setActiveTab('transactions')}
+                trend={balanceTrend}
+              />
+            )}
 
-              {activeTab === 'transactions' && (
-                <TransactionsTab t={t} transactions={transactions} deleteTransaction={deleteTransaction} />
-              )}
+            {activeTab === 'transactions' && (
+              <TransactionsTab t={t} transactions={transactions} deleteTransaction={deleteTransaction} />
+            )}
 
-              {activeTab === 'analytics' && (
-                <AnalyticsTab
-                  t={t}
-                  isDarkMode={isDarkMode}
-                  categoryBreakdown={categoryBreakdown}
-                  monthlyTrend={monthlyTrend}
-                  assetAllocation={assetAllocation}
-                  netWorth={netWorth}
-                />
-              )}
+            {activeTab === 'analytics' && (
+              <AnalyticsTab
+                t={t}
+                isDarkMode={isDarkMode}
+                categoryBreakdown={categoryBreakdown}
+                monthlyTrend={monthlyTrend}
+                assetAllocation={assetAllocation}
+                netWorth={netWorth}
+              />
+            )}
 
-              {activeTab === 'invest' && (
-                <InvestTab
-                  t={t}
-                  wallet={wallet}
-                  rates={rates}
-                  tradeAmounts={tradeAmounts}
-                  setTradeAmounts={setTradeAmounts}
-                  handleTrade={handleTrade}
-                  loading={isTrading}
-                />
-              )}
+            {activeTab === 'invest' && (
+              <InvestTab
+                t={t}
+                wallet={wallet}
+                rates={rates}
+                tradeAmounts={tradeAmounts}
+                setTradeAmounts={setTradeAmounts}
+                handleTrade={handleTrade}
+                loading={isTrading}
+              />
+            )}
 
-              {activeTab === 'profile' && (
-                <ProfileTab
-                  t={t}
-                  user={user}
-                  setUser={setUser}
-                  onSave={handleProfileSave}
-                  onOpenPasswordModal={() => setShowPasswordModal(true)}
-                />
-              )}
-            </div>
+            {activeTab === 'profile' && (
+              <ProfileTab
+                t={t}
+                user={user}
+                setUser={setUser}
+                onSave={handleProfileSave}
+                onOpenPasswordModal={() => setShowPasswordModal(true)}
+              />
+            )}
+           </div>
           </div>
         </div>
 

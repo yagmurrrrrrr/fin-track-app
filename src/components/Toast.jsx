@@ -2,7 +2,7 @@
 // Mevcut Card/Modal görsel dilini kullanır: rounded-2xl, border + shadow, dark mode uyumlu.
 // Ekstra kütüphane gerektirmez, sadece Tailwind'in yerleşik animate-spin/animate-pulse utility'leri kullanılır.
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const DURATION = 4500;
 
@@ -14,10 +14,44 @@ const VARIANT_STYLES = {
 };
 
 function ToastItem({ toast, onDismiss }) {
+  // WCAG 2.2.1 (Timing Adjustable): sabit 4.5sn'de otomatik kapanan bir bildirim, özellikle
+  // hata/uyarı mesajlarında, kullanıcı okumayı bitirmeden kaybolabiliyordu. Şimdi fare/klavye
+  // odağı toast üzerindeyken sayaç duruyor, ayrılınca kalan süreden devam ediyor.
+  const timerRef = useRef(null);
+  const remainingRef = useRef(DURATION);
+  const startedAtRef = useRef(null);
+  const [paused, setPaused] = useState(false);
+
+  const clear = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const start = () => {
+    startedAtRef.current = Date.now();
+    timerRef.current = setTimeout(() => onDismiss(toast.id), remainingRef.current);
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), DURATION);
-    return () => clearTimeout(timer);
-  }, [toast.id, onDismiss]);
+    start();
+    return clear;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast.id]);
+
+  const handlePause = () => {
+    if (paused) return;
+    setPaused(true);
+    clear();
+    remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAtRef.current));
+  };
+
+  const handleResume = () => {
+    if (!paused) return;
+    setPaused(false);
+    start();
+  };
 
   const style = VARIANT_STYLES[toast.variant] || VARIANT_STYLES.info;
   const isUrgent = toast.variant === 'error' || toast.variant === 'warning';
@@ -25,6 +59,10 @@ function ToastItem({ toast, onDismiss }) {
   return (
     <div
       role={isUrgent ? 'alert' : 'status'}
+      onMouseEnter={handlePause}
+      onMouseLeave={handleResume}
+      onFocus={handlePause}
+      onBlur={handleResume}
       className="toast-enter pointer-events-auto relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 pr-9 shadow-lg dark:border-slate-700 dark:bg-slate-800 sm:w-96"
     >
       <div className="flex items-start gap-3">
@@ -44,7 +82,7 @@ function ToastItem({ toast, onDismiss }) {
         ✕
       </button>
       <div className="absolute bottom-0 left-0 h-0.5 w-full bg-slate-100 dark:bg-slate-700">
-        <div className={`toast-progress h-full ${style.bar}`} />
+        <div className={`toast-progress h-full ${style.bar} ${paused ? '[animation-play-state:paused]' : ''}`} />
       </div>
     </div>
   );

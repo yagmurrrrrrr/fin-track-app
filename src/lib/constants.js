@@ -79,7 +79,21 @@ export const TEXTS = {
     dashboardWelcomeTitle: "Finansal yolculuğuna hoş geldin 👋",
     dashboardWelcomeHint: "İlk gelir ya da giderini ekleyerek panoyu keşfetmeye başla.",
     txSavedSuccess: "İşlem kaydedildi!", tradeSuccess: "İşlem başarıyla tamamlandı!",
-    recentTransactions: "Son İşlemler", viewAll: "Tümünü Gör"
+    recentTransactions: "Son İşlemler", viewAll: "Tümünü Gör",
+    vsLastMonth: "geçen aya göre", portfolioValue: "Portföy Değeri",
+    nearLimitWarning: "Limite yaklaşıyorsun",
+    searchLabel: "Ara", searchPlaceholder: "Açıklama veya kategori ara",
+    filterCategory: "Kategori", allCategories: "Tüm Kategoriler",
+    dateFrom: "Başlangıç", dateTo: "Bitiş", sortBy: "Sırala",
+    sortNewest: "En Yeni", sortOldest: "En Eski",
+    sortAmountDesc: "Tutar: Yüksek → Düşük", sortAmountAsc: "Tutar: Düşük → Yüksek",
+    clearFilters: "Filtreleri Temizle",
+    noFilterResultsTitle: "Eşleşen işlem bulunamadı", noFilterResultsHint: "Farklı bir arama dene veya filtreleri temizle.",
+    trendUp: "artış", trendDown: "azalış", trendFlat: "değişim yok",
+    dolarAmountLabel: "Dolar miktarı", euroAmountLabel: "Euro miktarı", altinAmountLabel: "Altın miktarı (gr)",
+    limitAmountLabel: "limit tutarı",
+    emailLabel: "E-posta", jobLabel: "Meslek", genderLabel: "Cinsiyet", addressLabel: "Adres",
+    male: "Erkek", female: "Kadın"
   },
   en: {
     dashboard: "Dashboard", transactions: "Transactions", invest: "Trade", profile: "Profile",
@@ -119,11 +133,52 @@ export const TEXTS = {
     dashboardWelcomeTitle: "Welcome to your financial journey 👋",
     dashboardWelcomeHint: "Add your first income or expense to start exploring your dashboard.",
     txSavedSuccess: "Transaction saved!", tradeSuccess: "Trade completed successfully!",
-    recentTransactions: "Recent Transactions", viewAll: "View All"
+    recentTransactions: "Recent Transactions", viewAll: "View All",
+    vsLastMonth: "vs last month", portfolioValue: "Portfolio Value",
+    nearLimitWarning: "Approaching your limit",
+    searchLabel: "Search", searchPlaceholder: "Search by description or category",
+    filterCategory: "Category", allCategories: "All Categories",
+    dateFrom: "From", dateTo: "To", sortBy: "Sort",
+    sortNewest: "Newest", sortOldest: "Oldest",
+    sortAmountDesc: "Amount: High → Low", sortAmountAsc: "Amount: Low → High",
+    clearFilters: "Clear Filters",
+    noFilterResultsTitle: "No matching transactions", noFilterResultsHint: "Try a different search or clear your filters.",
+    trendUp: "increase", trendDown: "decrease", trendFlat: "no change",
+    dolarAmountLabel: "Dollar amount", euroAmountLabel: "Euro amount", altinAmountLabel: "Gold amount (gr)",
+    limitAmountLabel: "limit amount",
+    emailLabel: "Email", jobLabel: "Occupation", genderLabel: "Gender", addressLabel: "Address",
+    male: "Male", female: "Female"
   }
 };
 
 export const PIE_COLORS = ['#0891b2', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#22d3ee', '#84cc16', '#f97316', '#64748b'];
+
+// Dashboard ve Invest sekmelerinde birebir aynı şekilde kopyalanmıştı — Phase 4'te tekilleştirildi.
+// Emoji ikonlar (💵💶🟡) tasarım eleştirisi sonrası düz/flat sembol rozetlerine çevrildi (bkz. AssetIcon, ui.jsx).
+export const ASSET_ICONS = { dolar: '$', euro: '€', altin: 'Au' };
+export const ASSET_BADGE_BG = { dolar: 'bg-emerald-500', euro: 'bg-blue-500', altin: 'bg-amber-500' };
+export const ASSET_STYLES = {
+  dolar: 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/20',
+  euro: 'from-blue-500/15 to-blue-500/5 border-blue-500/20',
+  altin: 'from-amber-500/15 to-amber-500/5 border-amber-500/20'
+};
+
+// Varlık kartlarındaki rakamın ne anlama geldiği (7 adet mi, 7 TL mi?) belirsizdi — miktara
+// birim ekleyerek netleştiriyoruz. Altın gram bazlı tutulduğu için "gr" son ekiyle gösteriliyor.
+export function formatAssetAmount(asset, value) {
+  if (asset === 'dolar') return `$${value}`;
+  if (asset === 'euro') return `€${value}`;
+  return `${value} gr`;
+}
+
+// TL tutarlarını tutarlı biçimde gösterir. Ham `.toLocaleString()` (argümansız) tarayıcının
+// varsayılan basamak ayarına göre kuruş hanesini 3+ basamağa kadar uzatabiliyordu — döviz/altın
+// alım-satımından gelen ondalıklı bir bakiye "38.205,388 ₺" gibi yanlış görünüyordu.
+// maximumFractionDigits ile en fazla 2 basamağa (kuruşa) sabitliyoruz; tam sayılarda kuruş hanesi
+// hiç gösterilmiyor (minimumFractionDigits: 0).
+export function formatTRY(value) {
+  return Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
 
 export function getDateStr() {
   const now = new Date();

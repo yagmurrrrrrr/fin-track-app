@@ -19,6 +19,15 @@ body {
   animation: marquee 30s linear infinite;
 }
 
+/* WCAG 2.2.2 (Pause, Stop, Hide): süresiz otomatik kayan ticker'ı durdurma mekanizması.
+   Hem fare (hover) hem klavye/dokunmatik (bir sonraki paragraftaki .marquee-paused class'ı,
+   TopBar'daki durdur/oynat butonuyla) için çalışır. */
+.animate-marquee:hover,
+.animate-marquee:focus-within,
+.marquee-paused .animate-marquee {
+  animation-play-state: paused;
+}
+
 /* NumberStepper: native tarayıcı spinner oklarını gizler, kendi +/- butonlarımızı kullanıyoruz */
 .num-input-clean::-webkit-outer-spin-button,
 .num-input-clean::-webkit-inner-spin-button {

@@ -59,7 +59,7 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
           <button
             type="button"
             onClick={() => setLimitsOpen(o => !o)}
@@ -75,7 +75,7 @@ export default function Sidebar({
             </span>
           </button>
           {limitsOpen && (
-            <div className="max-h-64 space-y-2 overflow-y-auto px-4 pb-4">
+            <div className="max-h-64 space-y-3 overflow-y-auto px-4 pb-5 pt-1">
               {Object.keys(limits).map(cat => (
                 <div key={cat} className="flex flex-col gap-1.5">
                   <span className="text-xs text-slate-500 dark:text-slate-400">{t[cat]?.toUpperCase() || cat.toUpperCase()}</span>
@@ -86,6 +86,7 @@ export default function Sidebar({
                     step={100}
                     onChange={val => setLimits({ ...limits, [cat]: val })}
                     onBlur={() => saveLimits(limits)}
+                    ariaLabel={`${t[cat] || cat} ${t.limitAmountLabel}`}
                   />
                 </div>
               ))}
@@ -93,7 +94,7 @@ export default function Sidebar({
           )}
         </div>
 
-        <div className="mt-4 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+        <div className="mt-6 space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}>
               🌐 {lang.toUpperCase()}
@@ -102,7 +103,9 @@ export default function Sidebar({
               {isDarkMode ? '🌙' : '☀️'}
             </Button>
           </div>
-          <Button variant="danger" className="w-full" onClick={onLogout}>
+          {/* Dolu kırmızı buton en az basılan aksiyonun ekranda en fazla görsel ağırlığı taşımasına
+              yol açıyordu — outline'a çevirdik, hâlâ net bir "dikkatli ol" sinyali veriyor. */}
+          <Button variant="dangerOutline" className="w-full" onClick={onLogout}>
             🚪 {t.logout}
           </Button>
         </div>

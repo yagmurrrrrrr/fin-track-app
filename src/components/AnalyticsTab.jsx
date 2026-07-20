@@ -3,13 +3,23 @@ import {
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { Card } from './ui.jsx';
-import { PIE_COLORS } from '../lib/constants.js';
+import { PIE_COLORS, formatTRY } from '../lib/constants.js';
 
 // Recharts kendi CSS class'larıyla stillenmiyor, bu yüzden burada birkaç ham renk değeri tutuyoruz.
 function useChartColors(isDarkMode) {
   return isDarkMode
     ? { grid: '#334155', text: '#94a3b8', tooltipBg: '#1e293b', tooltipBorder: '#334155' }
     : { grid: '#e2e8f0', text: '#64748b', tooltipBg: '#ffffff', tooltipBorder: '#e2e8f0' };
+}
+
+function EmptyChart({ t }) {
+  return (
+    <div className="flex flex-col items-center gap-1 py-10 text-center">
+      <span className="text-3xl" aria-hidden="true">📊</span>
+      <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">{t.emptyAnalyticsTitle}</p>
+      <p className="max-w-xs text-xs text-slate-400 dark:text-slate-500">{t.emptyAnalyticsHint}</p>
+    </div>
+  );
 }
 
 export default function AnalyticsTab({ t, isDarkMode, categoryBreakdown, monthlyTrend, assetAllocation, netWorth }) {
@@ -20,9 +30,9 @@ export default function AnalyticsTab({ t, isDarkMode, categoryBreakdown, monthly
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <h3 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">📊 {t.catBreakdown}</h3>
+          <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">📊 {t.catBreakdown}</h2>
           {categoryBreakdown.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">{t.noData}</p>
+            <EmptyChart t={t} />
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
@@ -39,19 +49,19 @@ export default function AnalyticsTab({ t, isDarkMode, categoryBreakdown, monthly
                     <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${v.toLocaleString()} ₺`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${formatTRY(v)} ₺`} />
               </PieChart>
             </ResponsiveContainer>
           )}
         </Card>
 
         <Card>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">💰 {t.assetAllocation}</h3>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">💰 {t.assetAllocation}</h2>
           <p className="mb-2 mt-1 inline-block rounded-full bg-cyan-50 px-3 py-1 text-xs text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400">
-            {t.netWorth}: <b>{netWorth.toLocaleString()} ₺</b>
+            {t.netWorth}: <b>{formatTRY(netWorth)} ₺</b>
           </p>
           {assetAllocation.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">{t.noData}</p>
+            <EmptyChart t={t} />
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
@@ -68,7 +78,7 @@ export default function AnalyticsTab({ t, isDarkMode, categoryBreakdown, monthly
                     <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${v.toLocaleString()} ₺`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${formatTRY(v)} ₺`} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -76,16 +86,16 @@ export default function AnalyticsTab({ t, isDarkMode, categoryBreakdown, monthly
       </div>
 
       <Card>
-        <h3 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">📈 {t.monthlyTrend}</h3>
+        <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">📈 {t.monthlyTrend}</h2>
         {monthlyTrend.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">{t.noData}</p>
+          <EmptyChart t={t} />
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={monthlyTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
               <XAxis dataKey="month" stroke={c.text} />
               <YAxis stroke={c.text} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${v.toLocaleString()} ₺`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${formatTRY(v)} ₺`} />
               <Legend />
               <Bar dataKey={t.incomeLbl} fill="#10b981" radius={[6, 6, 0, 0]} />
               <Bar dataKey={t.expenseLbl} fill="#ef4444" radius={[6, 6, 0, 0]} />

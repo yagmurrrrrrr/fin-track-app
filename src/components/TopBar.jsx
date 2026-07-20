@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 export default function TopBar({ t, lang, rates, lastUpdated, user, currentUsername, motivation, onOpenMobileMenu }) {
   const tickerItems = [
     `USD: ${rates.dolar.toFixed(2)}₺`,
@@ -8,15 +10,31 @@ export default function TopBar({ t, lang, rates, lastUpdated, user, currentUsern
   const displayName = user.fullName || currentUsername;
   const initial = displayName.trim().charAt(0).toUpperCase();
 
+  // WCAG 2.2.2 (Pause, Stop, Hide): süresiz otomatik kayan ticker mouse hover'da zaten duruyor
+  // (bkz. index.css), ama klavye/dokunmatik kullanıcılar için de açık bir durdur/oynat kontrolü gerekiyor.
+  const [tickerPaused, setTickerPaused] = useState(false);
+  const pauseLabel = tickerPaused
+    ? (lang === 'tr' ? 'Kur akışını oynat' : 'Play rate ticker')
+    : (lang === 'tr' ? 'Kur akışını duraklat' : 'Pause rate ticker');
+
   return (
     <div>
-      <div className="flex h-11 items-center gap-4 overflow-hidden bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-4">
+      <div className={`flex h-11 items-center gap-4 overflow-hidden bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-4 ${tickerPaused ? 'marquee-paused' : ''}`}>
         <button
           onClick={onOpenMobileMenu}
           className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-800 md:hidden"
           aria-label="Open menu"
         >
           ☰
+        </button>
+        <button
+          type="button"
+          onClick={() => setTickerPaused(p => !p)}
+          aria-label={pauseLabel}
+          aria-pressed={tickerPaused}
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+        >
+          {tickerPaused ? '▶' : '⏸'}
         </button>
         <div className="flex-1 overflow-hidden whitespace-nowrap">
           <div className="animate-marquee inline-block">
@@ -42,9 +60,12 @@ export default function TopBar({ t, lang, rates, lastUpdated, user, currentUsern
           {initial}
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
+          {/* Uygulamanın tek gerçek <h1>'i burası — önceden Dashboard'daki bakiye tutarı yanlışlıkla
+              h1 olarak işaretlenmişti, ekran okuyucu başlık listesinde sayfa adı yerine bir para
+              tutarı görünüyordu. */}
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">
             {t.welcome}, {displayName} 👋
-          </h2>
+          </h1>
           <p className="mt-1.5 text-sm italic text-amber-700 dark:text-amber-400">"{motivation}"</p>
         </div>
       </div>

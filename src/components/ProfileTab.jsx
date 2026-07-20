@@ -5,7 +5,7 @@ export default function ProfileTab({ t, user, setUser, onSave, onOpenPasswordMod
 
   return (
     <Card className="mx-auto max-w-3xl">
-      <h3 className="mb-5 text-base font-semibold text-slate-900 dark:text-slate-50">{t.profile}</h3>
+      <h2 className="mb-5 text-base font-semibold text-slate-900 dark:text-slate-50">{t.profile}</h2>
       {isEmptyProfile && (
         <p className="mb-5 rounded-xl border border-cyan-200 bg-cyan-50/60 px-4 py-3 text-sm text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/5 dark:text-cyan-300">
           {t.emptyProfileHint}
@@ -18,26 +18,30 @@ export default function ProfileTab({ t, user, setUser, onSave, onOpenPasswordMod
           onChange={e => setUser({ ...user, fullName: e.target.value })}
         />
         <Input
-          label="E-posta"
+          label={t.emailLabel}
+          type="email"
+          autoComplete="email"
           value={user.email}
           onChange={e => setUser({ ...user, email: e.target.value })}
         />
         <Input
-          label="Meslek"
+          label={t.jobLabel}
           value={user.job}
           onChange={e => setUser({ ...user, job: e.target.value })}
         />
+        {/* Not: option value'ları ("Kadın"/"Erkek") veritabanında saklanan gerçek değerler —
+            backend şemasına dokunmadan sadece görünen metni dile göre çeviriyoruz. */}
         <Select
-          label="Cinsiyet"
+          label={t.genderLabel}
           value={user.gender}
           onChange={e => setUser({ ...user, gender: e.target.value })}
         >
-          <option value="Kadın">Kadın</option>
-          <option value="Erkek">Erkek</option>
+          <option value="Kadın">{t.female}</option>
+          <option value="Erkek">{t.male}</option>
         </Select>
         <div className="sm:col-span-2">
           <TextArea
-            label="Adres"
+            label={t.addressLabel}
             value={user.address}
             onChange={e => setUser({ ...user, address: e.target.value })}
             rows={2}
