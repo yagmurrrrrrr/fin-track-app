@@ -1,20 +1,42 @@
+require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const logger = require('./logger.cjs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Her HTTP isteğini (metod, yol, durum kodu, süre) otomatik olarak loglar — tek bir yerde
+// tanımlandığı için aşağıdaki tüm endpoint'leri tek tek değiştirmeye gerek kalmadan
+// Elasticsearch'e istek bazlı log akışı sağlar.
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logger.info('HTTP isteği', {
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      durationMs: Date.now() - start
+    });
+  });
+  next();
+});
+
+// --- MySQL bağlantı bilgisi: .env dosyasından (yoksa localdeki eski değerlerden) okunuyor ---
 const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: 'Yagmur1012',
-  database: 'fintrack_db',
-  decimalNumbers: true,
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'Yagmur1012',
+  database: process.env.DB_NAME || 'fintrack_db',
+  decimalNumbers: true, // DECIMAL kolonları JS number olarak döner
   waitForConnections: true,
-  connectionLimit: 10
+  connectionLimit: 10,
+  // Aiven gibi bulut MySQL servisleri SSL zorunlu tutuyor; DB_SSL=true ise devreye girer
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
 
 app.get('/', (req, res) => {
@@ -59,9 +81,10 @@ app.post('/api/register', async (req, res) => {
       'INSERT INTO spending_limits (user_id, gida, kira, ulasim, teknoloji, eglence, fatura) VALUES (?,?,?,?,?,?,?)',
       [userId, DEFAULT_LIMITS.gida, DEFAULT_LIMITS.kira, DEFAULT_LIMITS.ulasim, DEFAULT_LIMITS.teknoloji, DEFAULT_LIMITS.eglence, DEFAULT_LIMITS.fatura]
     );
+    logger.info('Yeni kullanıcı kaydı', { username });
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -71,14 +94,21 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     const [rows] = await pool.query('SELECT * FROM users WHERE username = ?', [username]);
-    if (rows.length === 0) return res.status(401).json({ error: 'loginFailed' });
+    if (rows.length === 0) {
+      logger.warn('Başarısız giriş denemesi (kullanıcı yok)', { username });
+      return res.status(401).json({ error: 'loginFailed' });
+    }
 
     const match = await bcrypt.compare(password || '', rows[0].password_hash);
-    if (!match) return res.status(401).json({ error: 'loginFailed' });
+    if (!match) {
+      logger.warn('Başarısız giriş denemesi (yanlış şifre)', { username });
+      return res.status(401).json({ error: 'loginFailed' });
+    }
 
+    logger.info('Kullanıcı girişi başarılı', { username });
     res.json({ user: mapUser(rows[0]) });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -91,11 +121,15 @@ app.post('/api/forgot/verify', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
 
     const match = await bcrypt.compare((securityAnswer || '').toLowerCase(), rows[0].security_answer_hash || '');
-    if (!match) return res.status(401).json({ error: 'wrongAnswer' });
+    if (!match) {
+      logger.warn('Şifremi unuttum: yanlış güvenlik sorusu cevabı', { username });
+      return res.status(401).json({ error: 'wrongAnswer' });
+    }
 
+    logger.info('Şifremi unuttum: güvenlik sorusu doğrulandı', { username });
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -106,9 +140,10 @@ app.post('/api/forgot/reset', async (req, res) => {
     const passwordHash = await bcrypt.hash(newPassword, 10);
     const [result] = await pool.query('UPDATE users SET password_hash = ? WHERE username = ?', [passwordHash, username]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'userNotFound' });
+    logger.info('Şifre sıfırlandı (şifremi unuttum akışı)', { username });
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -121,13 +156,17 @@ app.put('/api/user/:username/password', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
 
     const match = await bcrypt.compare(currentPassword || '', rows[0].password_hash);
-    if (!match) return res.status(401).json({ error: 'wrongCurrentPassword' });
+    if (!match) {
+      logger.warn('Şifre değiştirme: mevcut şifre yanlış girildi', { username: req.params.username });
+      return res.status(401).json({ error: 'wrongCurrentPassword' });
+    }
 
     const newHash = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users SET password_hash = ? WHERE username = ?', [newHash, req.params.username]);
+    logger.info('Şifre değiştirildi (ayarlardan)', { username: req.params.username });
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -139,7 +178,7 @@ app.get('/api/user/:username', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
     res.json({ user: mapUser(rows[0]) });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -153,7 +192,7 @@ app.put('/api/user/:username', async (req, res) => {
     );
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -169,7 +208,7 @@ app.get('/api/wallet/:username', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
     res.json({ wallet: rows[0] });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -184,7 +223,7 @@ app.put('/api/wallet/:username', async (req, res) => {
     );
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -200,7 +239,7 @@ app.get('/api/limits/:username', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
     res.json({ limits: rows[0] });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -215,7 +254,7 @@ app.put('/api/limits/:username', async (req, res) => {
     );
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -231,7 +270,7 @@ app.get('/api/transactions/:username', async (req, res) => {
     );
     res.json({ transactions: rows });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -246,9 +285,10 @@ app.post('/api/transactions/:username', async (req, res) => {
       'INSERT INTO transactions (user_id, desc_text, amount, category, tx_date) VALUES (?,?,?,?,?)',
       [userRows[0].id, desc, amount, cat, date]
     );
+    logger.info('Yeni işlem eklendi', { username: req.params.username, transactionId: result.insertId, amount, category: cat });
     res.json({ id: result.insertId });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
@@ -260,14 +300,15 @@ app.delete('/api/transactions/:username/:id', async (req, res) => {
        WHERE u.username = ? AND t.id = ?`,
       [req.params.username, req.params.id]
     );
+    logger.info('İşlem silindi', { username: req.params.username, transactionId: req.params.id });
     res.json({ success: true });
   } catch (e) {
-    console.error(e);
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
     res.status(500).json({ error: 'serverError' });
   }
 });
 
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`FinTrack API http://localhost:${PORT} adresinde çalışıyor`);
+  logger.info(`FinTrack API başlatıldı`, { port: PORT });
 });

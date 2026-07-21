@@ -5,6 +5,20 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 app.use(express.json());
+const logger = require('./logger.cjs');
+// Her HTTP isteğini (metod, yol, durum kodu, süre) otomatik olarak loglar
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logger.info('HTTP isteği', {
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      durationMs: Date.now() - start
+    });
+  });
+  next();
+});
 
 // SQL Bağlantı Ayarları
 const db = mysql.createConnection({
