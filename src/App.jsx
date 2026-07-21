@@ -431,9 +431,10 @@ function App() {
       if (!res.ok) throw new Error('save failed');
       const data = await res.json();
       setTransactions([{ id: data.id, ...newTx }, ...transactions]);
-      setWallet({ ...wallet, bakiye: wallet.bakiye + final });
+    setWallet({ ...wallet, bakiye: wallet.bakiye + final });
       playTrink();
       setShowModal(false);
+      setFormData({ desc: '', amt: '', cat: modalType === 'gelir' ? 'maas' : 'gida' });
       showToast(t.txSavedSuccess, 'success');
     } catch (e) {
       showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
@@ -674,8 +675,8 @@ function App() {
                 wallet={wallet}
                 limits={limits}
                 transactions={transactions}
-                onOpenIncome={() => { setModalType('gelir'); setFormData({ ...formData, cat: 'maas' }); setShowModal(true); }}
-                onOpenExpense={() => { setModalType('gider'); setFormData({ ...formData, cat: 'gida' }); setShowModal(true); }}
+              onOpenIncome={() => { setModalType('gelir'); setFormData({ desc: '', amt: '', cat: 'maas' }); setShowModal(true); }}
+                onOpenExpense={() => { setModalType('gider'); setFormData({ desc: '', amt: '', cat: 'gida' }); setShowModal(true); }}
                 onViewAll={() => setActiveTab('transactions')}
                 trend={balanceTrend}
               />
