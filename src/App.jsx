@@ -14,7 +14,9 @@ import { TransactionModal, PasswordModal } from './components/Modals.jsx';
 import ToastContainer from './components/Toast.jsx';
 import { Skeleton } from './components/ui.jsx';
 
-const API_URL = 'http://localhost:4000/api';
+// Yayında (Vercel) VITE_API_URL environment variable'ı Render backend adresine ayarlanıyor;
+// local'de böyle bir değişken yoksa eskisi gibi localhost:4000'e düşüyor.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const CONN_ERROR_TR = 'Sunucuya bağlanılamadı. Backend (server.cjs) çalışıyor mu?';
 const CONN_ERROR_EN = 'Could not connect to the server. Is the backend (server.cjs) running?';
 
