@@ -60,8 +60,8 @@ function mapUser(row) {
 
 // ---------------- KAYIT OL ----------------
 app.post('/api/register', async (req, res) => {
-  const { username, password, fullName, securityAnswer } = req.body;
-  if (!username || !password || !fullName || !securityAnswer) {
+  const { username, password, fullName, email, securityAnswer } = req.body;
+  if (!username || !password || !fullName || !email || !securityAnswer) {
     return res.status(400).json({ error: 'fillAllFields' });
   }
   try {
@@ -72,11 +72,16 @@ app.post('/api/register', async (req, res) => {
     const answerHash = await bcrypt.hash(securityAnswer.toLowerCase(), 10);
 
     const [result] = await pool.query(
-      'INSERT INTO users (username, password_hash, full_name, gender, security_answer_hash) VALUES (?,?,?,?,?)',
-      [username, passwordHash, fullName, 'Kadın', answerHash]
+      'INSERT INTO users (username, password_hash, full_name, email, gender, security_answer_hash) VALUES (?,?,?,?,?,?)',
+      [username, passwordHash, fullName, email, 'Kadın', answerHash]
     );
     const userId = result.insertId;
-    await pool.query('INSERT INTO wallet (user_id) VALUES (?)', [userId]);
+    // Yeni hesap tamamen sıfırdan başlıyor — daha önce hiç almadığı halde 100.000 TL/dolar/euro/altına
+    // sahipmiş gibi görünmesi kafa karıştırıcıydı, bu yüzden hepsi 0'dan başlıyor.
+    await pool.query(
+      'INSERT INTO wallet (user_id, bakiye, dolar, euro, altin) VALUES (?, 0, 0, 0, 0)',
+      [userId]
+    );
     await pool.query(
       'INSERT INTO spending_limits (user_id, gida, kira, ulasim, teknoloji, eglence, fatura) VALUES (?,?,?,?,?,?,?)',
       [userId, DEFAULT_LIMITS.gida, DEFAULT_LIMITS.kira, DEFAULT_LIMITS.ulasim, DEFAULT_LIMITS.teknoloji, DEFAULT_LIMITS.eglence, DEFAULT_LIMITS.fatura]

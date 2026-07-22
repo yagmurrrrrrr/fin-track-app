@@ -31,8 +31,8 @@ function App() {
   const [modalType, setModalType] = useState('gider');
   const [loginData, setLoginData] = useState({ user: 'yagmurrrrrr', pass: '123' });
   const [tradeAmounts, setTradeAmounts] = useState({ dolar: 1, euro: 1, altin: 1 });
-
-  const [registerData, setRegisterData] = useState({ username: '', password: '', confirm: '', fullName: '', securityAnswer: '' });
+ const [registerData, setRegisterData] = useState({ username: '', password: '', confirm: '', fullName: '', email: '', securityAnswer: '' });
+  
   const [forgotStep, setForgotStep] = useState(1);
   const [forgotData, setForgotData] = useState({ username: '', securityAnswer: '', newPassword: '', confirm: '' });
   const [currentUsername, setCurrentUsername] = useState(null);
@@ -307,8 +307,10 @@ function App() {
 
   const handleRegister = async () => {
     if (isRegistering) return;
-    const { username, password, confirm, fullName, securityAnswer } = registerData;
-    if (!username.trim() || !password || !confirm || !fullName.trim() || !securityAnswer.trim()) {
+    const handleRegister = async () => {
+    if (isRegistering) return;
+    const { username, password, confirm, fullName, email, securityAnswer } = registerData;
+    if (!username.trim() || !password || !confirm || !fullName.trim() || !email.trim() || !securityAnswer.trim()) {
       showToast(t.fillAllFields, 'warning'); return;
     }
     if (password !== confirm) { showToast(t.errPasswordMismatch, 'warning'); return; }
@@ -320,7 +322,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username.trim(), password, fullName: fullName.trim(), securityAnswer: securityAnswer.trim()
+          username: username.trim(), password, fullName: fullName.trim(), email: email.trim(), securityAnswer: securityAnswer.trim()
         })
       });
       if (res.status === 409) { showToast(t.errUsernameTaken, 'error'); return; }
@@ -328,7 +330,7 @@ function App() {
 
       showToast(t.registerSuccess, 'success');
       setLoginData({ user: username.trim(), pass: '' });
-      setRegisterData({ username: '', password: '', confirm: '', fullName: '', securityAnswer: '' });
+      setRegisterData({ username: '', password: '', confirm: '', fullName: '', email: '', securityAnswer: '' });
       setAuthView('login');
     } catch (e) {
       showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
@@ -748,3 +750,4 @@ function App() {
 }
 
 export default App;
+}

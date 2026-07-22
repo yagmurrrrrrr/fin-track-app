@@ -37,11 +37,14 @@ export default function AuthScreen({
 
           {/* Her görünüm artık gerçek bir <form onSubmit>: Enter tuşuyla gönderim çalışır (önceden
               butonlar sadece onClick'e bağlıydı, klavyeyle şifre alanında Enter'a basmak hiçbir şey
-              yapmıyordu). autoComplete öznitelikleri şifre yöneticilerinin alanları doğru tanımasını sağlar. */}
+              yapmıyordu). autoComplete öznitelikleri şifre yöneticilerinin alanları doğru tanımasını sağlar.
+              name öznitelikleri de tarayıcının otomatik doldurmayı yanlış alanla (örn. kayıtlı adres/isim
+              bilgisiyle) karıştırmasını önlüyor. */}
           {authView === 'login' && (
             <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleLogin(); }}>
               <Input
                 label={t.usernameLabel}
+                name="username"
                 autoComplete="username"
                 value={loginData.user}
                 onChange={e => setLoginData({ ...loginData, user: e.target.value })}
@@ -49,6 +52,7 @@ export default function AuthScreen({
               <Input
                 label={t.passwordLabel}
                 type="password"
+                name="current-password"
                 autoComplete="current-password"
                 value={loginData.pass}
                 onChange={e => setLoginData({ ...loginData, pass: e.target.value })}
@@ -77,19 +81,30 @@ export default function AuthScreen({
             <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleRegister(); }}>
               <Input
                 label={t.fullNameLabel}
+                name="name"
                 autoComplete="name"
                 value={registerData.fullName}
                 onChange={e => setRegisterData({ ...registerData, fullName: e.target.value })}
               />
               <Input
                 label={t.usernameLabel}
+                name="username"
                 autoComplete="username"
                 value={registerData.username}
                 onChange={e => setRegisterData({ ...registerData, username: e.target.value })}
               />
               <Input
+                label={t.emailLabel}
+                type="email"
+                name="email"
+                autoComplete="email"
+                value={registerData.email}
+                onChange={e => setRegisterData({ ...registerData, email: e.target.value })}
+              />
+              <Input
                 label={t.passwordLabel}
                 type="password"
+                name="new-password"
                 autoComplete="new-password"
                 value={registerData.password}
                 onChange={e => setRegisterData({ ...registerData, password: e.target.value })}
@@ -97,12 +112,15 @@ export default function AuthScreen({
               <Input
                 label={t.confirmPasswordLabel}
                 type="password"
+                name="confirm-password"
                 autoComplete="new-password"
                 value={registerData.confirm}
                 onChange={e => setRegisterData({ ...registerData, confirm: e.target.value })}
               />
               <Input
                 label={t.securityQuestion}
+                name="security-answer"
+                autoComplete="off"
                 value={registerData.securityAnswer}
                 onChange={e => setRegisterData({ ...registerData, securityAnswer: e.target.value })}
               />
@@ -130,12 +148,15 @@ export default function AuthScreen({
                 <>
                   <Input
                     label={t.usernameLabel}
+                    name="username"
                     autoComplete="username"
                     value={forgotData.username}
                     onChange={e => setForgotData({ ...forgotData, username: e.target.value })}
                   />
                   <Input
                     label={t.securityQuestion}
+                    name="security-answer"
+                    autoComplete="off"
                     value={forgotData.securityAnswer}
                     onChange={e => setForgotData({ ...forgotData, securityAnswer: e.target.value })}
                   />
