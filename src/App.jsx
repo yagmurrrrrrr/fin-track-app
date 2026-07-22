@@ -31,8 +31,8 @@ function App() {
   const [modalType, setModalType] = useState('gider');
   const [loginData, setLoginData] = useState({ user: 'yagmurrrrrr', pass: '123' });
   const [tradeAmounts, setTradeAmounts] = useState({ dolar: 1, euro: 1, altin: 1 });
- const [registerData, setRegisterData] = useState({ username: '', password: '', confirm: '', fullName: '', email: '', securityAnswer: '' });
-  
+
+  const [registerData, setRegisterData] = useState({ username: '', password: '', confirm: '', fullName: '', email: '', securityAnswer: '' });
   const [forgotStep, setForgotStep] = useState(1);
   const [forgotData, setForgotData] = useState({ username: '', securityAnswer: '', newPassword: '', confirm: '' });
   const [currentUsername, setCurrentUsername] = useState(null);
@@ -73,6 +73,9 @@ function App() {
   const [limits, setLimits] = useState({
     gida: 5000, kira: 15000, ulasim: 2000, teknoloji: 10000, eglence: 3000, fatura: 4000
   });
+  // Sunucudan wallet/limits ilk kez başarıyla çekilene kadar true olmayan bir bayrak —
+  // "kaydet" efektinin henüz gerçek veriyle doldurulmamış state'i sunucuya yazmasını engeller.
+  const dataLoadedRef = useRef(false);
 
   // --- GÜNCEL KURLAR (dolar/euro TCMB/ECB tabanlı, altın gram bazlı) ---
   const [rates, setRates] = useState({ dolar: 43.15, euro: 50.45, altin: 6150.20 });
@@ -191,6 +194,9 @@ function App() {
   // --- GİRİŞ SONRASI: kullanıcının profil/cüzdan/limit/işlem verilerini API'den çek ---
   useEffect(() => {
     if (!isLoggedIn || !currentUsername) return;
+    // Sunucudan gerçek veri gelene kadar "kaydet" efektinin (aşağıda) henüz varsayılan/sıfır
+    // state'i sunucuya geri yazıp gerçek bakiyenin üzerine yazmasını engelliyoruz.
+    dataLoadedRef.current = false;
 
     const loadData = async () => {
       setIsLoadingData(true);
@@ -229,6 +235,8 @@ function App() {
         if (txData.transactions) {
           setTransactions(txData.transactions.map(tr => ({ ...tr, amount: Number(tr.amount) })));
         }
+        // Gerçek veriler state'e işlendi — artık "kaydet" efektinin çalışmasına izin verebiliriz.
+        dataLoadedRef.current = true;
       } catch (e) {
         console.log('Kullanıcı verisi sunucudan alınamadı:', e);
         showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
@@ -242,7 +250,9 @@ function App() {
 
   // --- Cüzdan / limit değişikliklerini sunucuya kaydet ---
   useEffect(() => {
-    if (!currentUsername) return;
+    // Sunucudan ilk veri çekme işlemi tamamlanmadan bu efektin tetiklenmesi, henüz güncellenmemiş
+    // (varsayılan/sıfır) wallet state'ini sunucuya geri yazıp gerçek bakiyenin üzerine yazıyordu.
+    if (!currentUsername || !dataLoadedRef.current) return;
     const persist = async () => {
       try {
         await fetch(`${API_URL}/wallet/${currentUsername}`, {
@@ -306,8 +316,6 @@ function App() {
   };
 
   const handleRegister = async () => {
-    if (isRegistering) return;
-    const handleRegister = async () => {
     if (isRegistering) return;
     const { username, password, confirm, fullName, email, securityAnswer } = registerData;
     if (!username.trim() || !password || !confirm || !fullName.trim() || !email.trim() || !securityAnswer.trim()) {
@@ -433,7 +441,7 @@ function App() {
       if (!res.ok) throw new Error('save failed');
       const data = await res.json();
       setTransactions([{ id: data.id, ...newTx }, ...transactions]);
-    setWallet({ ...wallet, bakiye: wallet.bakiye + final });
+      setWallet({ ...wallet, bakiye: wallet.bakiye + final });
       playTrink();
       setShowModal(false);
       setFormData({ desc: '', amt: '', cat: modalType === 'gelir' ? 'maas' : 'gida' });
@@ -677,7 +685,7 @@ function App() {
                 wallet={wallet}
                 limits={limits}
                 transactions={transactions}
-              onOpenIncome={() => { setModalType('gelir'); setFormData({ desc: '', amt: '', cat: 'maas' }); setShowModal(true); }}
+                onOpenIncome={() => { setModalType('gelir'); setFormData({ desc: '', amt: '', cat: 'maas' }); setShowModal(true); }}
                 onOpenExpense={() => { setModalType('gider'); setFormData({ desc: '', amt: '', cat: 'gida' }); setShowModal(true); }}
                 onViewAll={() => setActiveTab('transactions')}
                 trend={balanceTrend}
@@ -750,4 +758,3 @@ function App() {
 }
 
 export default App;
-}
