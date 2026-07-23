@@ -6,7 +6,9 @@ export default function AuthScreen({
   loginData, setLoginData, handleLogin, loginLoading,
   registerData, setRegisterData, handleRegister, registerLoading,
   forgotStep, setForgotStep, forgotData, setForgotData,
-  handleForgotVerify, verifyLoading, handleForgotReset, resetLoading
+  handleForgotVerify, verifyLoading,
+  handleForgotCheckCode, checkCodeLoading,
+  handleForgotReset, resetLoading
 }) {
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -35,11 +37,6 @@ export default function AuthScreen({
             </p>
           </div>
 
-          {/* Her görünüm artık gerçek bir <form onSubmit>: Enter tuşuyla gönderim çalışır (önceden
-              butonlar sadece onClick'e bağlıydı, klavyeyle şifre alanında Enter'a basmak hiçbir şey
-              yapmıyordu). autoComplete öznitelikleri şifre yöneticilerinin alanları doğru tanımasını sağlar.
-              name öznitelikleri de tarayıcının otomatik doldurmayı yanlış alanla (örn. kayıtlı adres/isim
-              bilgisiyle) karıştırmasını önlüyor. */}
           {authView === 'login' && (
             <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleLogin(); }}>
               <Input
@@ -117,13 +114,6 @@ export default function AuthScreen({
                 value={registerData.confirm}
                 onChange={e => setRegisterData({ ...registerData, confirm: e.target.value })}
               />
-              <Input
-                label={t.securityQuestion}
-                name="security-answer"
-                autoComplete="off"
-                value={registerData.securityAnswer}
-                onChange={e => setRegisterData({ ...registerData, securityAnswer: e.target.value })}
-              />
               <Button type="submit" className="w-full" loading={registerLoading}>{t.registerTitle}</Button>
               <button
                 type="button"
@@ -141,28 +131,36 @@ export default function AuthScreen({
               onSubmit={e => {
                 e.preventDefault();
                 if (forgotStep === 1) handleForgotVerify();
+                else if (forgotStep === 2) handleForgotCheckCode();
                 else handleForgotReset();
               }}
             >
-              {forgotStep === 1 ? (
+              {forgotStep === 1 && (
                 <>
                   <Input
-                    label={t.usernameLabel}
-                    name="username"
-                    autoComplete="username"
-                    value={forgotData.username}
-                    onChange={e => setForgotData({ ...forgotData, username: e.target.value })}
+                    label={t.emailLabel}
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    value={forgotData.email}
+                    onChange={e => setForgotData({ ...forgotData, email: e.target.value })}
                   />
-                  <Input
-                    label={t.securityQuestion}
-                    name="security-answer"
-                    autoComplete="off"
-                    value={forgotData.securityAnswer}
-                    onChange={e => setForgotData({ ...forgotData, securityAnswer: e.target.value })}
-                  />
-                  <Button type="submit" className="w-full" loading={verifyLoading}>{t.verifyBtn}</Button>
+                  <Button type="submit" className="w-full" loading={verifyLoading}>{t.sendCodeBtn}</Button>
                 </>
-              ) : (
+              )}
+              {forgotStep === 2 && (
+                <>
+                  <Input
+                    label={t.codeLabel}
+                    name="code"
+                    autoComplete="one-time-code"
+                    value={forgotData.code}
+                    onChange={e => setForgotData({ ...forgotData, code: e.target.value })}
+                  />
+                  <Button type="submit" className="w-full" loading={checkCodeLoading}>{t.verifyBtn}</Button>
+                </>
+              )}
+              {forgotStep === 3 && (
                 <>
                   <Input
                     label={t.newPasswordLabel}

@@ -32,9 +32,9 @@ function App() {
   const [loginData, setLoginData] = useState({ user: 'yagmurrrrrr', pass: '123' });
   const [tradeAmounts, setTradeAmounts] = useState({ dolar: 1, euro: 1, altin: 1 });
 
-  const [registerData, setRegisterData] = useState({ username: '', password: '', confirm: '', fullName: '', email: '', securityAnswer: '' });
+  const [registerData, setRegisterData] = useState({ username: '', password: '', confirm: '', fullName: '', email: '' });
   const [forgotStep, setForgotStep] = useState(1);
-  const [forgotData, setForgotData] = useState({ username: '', securityAnswer: '', newPassword: '', confirm: '' });
+  const [forgotData, setForgotData] = useState({ email: '', code: '', newPassword: '', confirm: '' });
   const [currentUsername, setCurrentUsername] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
@@ -50,7 +50,8 @@ function App() {
   // --- YÜKLENİYOR DURUMLARI (buton spinner'ları + çift gönderim engeli) ---
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+ const [isVerifying, setIsVerifying] = useState(false);
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTx, setIsSavingTx] = useState(false);
@@ -86,7 +87,6 @@ function App() {
   const [quotePool, setQuotePool] = useState([]);
   const [motivationText, setMotivationText] = useState('');
 
-  // Tam söz listesini ara sıra tazele (60 sn'de bir) — sunucuyu her 5 sn'de yormamak için
   useEffect(() => {
     let cancelled = false;
     const fetchPool = async () => {
@@ -105,7 +105,6 @@ function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  // Her 5 sn'de, 1600+ sözlük listeden tamamen rastgele bir tanesini seç
   useEffect(() => {
     let cancelled = false;
 
@@ -141,7 +140,6 @@ function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [quotePool, lang]);
 
-  // --- CANLI KUR ÇEKME ---
   useEffect(() => {
     let cancelled = false;
 
@@ -169,7 +167,6 @@ function App() {
         console.log('Döviz kuru alınamadı, önceki değer korunuyor:', e);
       }
 
-      // Gram altın -> TRY: ons altın fiyatını (USD) çekip gram'a ve TL'ye çeviriyoruz
       try {
         const goldRes = await fetch('https://api.gold-api.com/price/XAU');
         const goldData = await goldRes.json();
@@ -191,11 +188,8 @@ function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  // --- GİRİŞ SONRASI: kullanıcının profil/cüzdan/limit/işlem verilerini API'den çek ---
   useEffect(() => {
     if (!isLoggedIn || !currentUsername) return;
-    // Sunucudan gerçek veri gelene kadar "kaydet" efektinin (aşağıda) henüz varsayılan/sıfır
-    // state'i sunucuya geri yazıp gerçek bakiyenin üzerine yazmasını engelliyoruz.
     dataLoadedRef.current = false;
 
     const loadData = async () => {
@@ -235,7 +229,6 @@ function App() {
         if (txData.transactions) {
           setTransactions(txData.transactions.map(tr => ({ ...tr, amount: Number(tr.amount) })));
         }
-        // Gerçek veriler state'e işlendi — artık "kaydet" efektinin çalışmasına izin verebiliriz.
         dataLoadedRef.current = true;
       } catch (e) {
         console.log('Kullanıcı verisi sunucudan alınamadı:', e);
@@ -248,10 +241,7 @@ function App() {
     loadData();
   }, [isLoggedIn, currentUsername]);
 
-  // --- Cüzdan / limit değişikliklerini sunucuya kaydet ---
   useEffect(() => {
-    // Sunucudan ilk veri çekme işlemi tamamlanmadan bu efektin tetiklenmesi, henüz güncellenmemiş
-    // (varsayılan/sıfır) wallet state'ini sunucuya geri yazıp gerçek bakiyenin üzerine yazıyordu.
     if (!currentUsername || !dataLoadedRef.current) return;
     const persist = async () => {
       try {
@@ -272,7 +262,6 @@ function App() {
     persist();
   }, [wallet, limits, currentUsername]);
 
-  // --- Profil değişikliklerini sunucuya kaydet ---
   useEffect(() => {
     if (!currentUsername) return;
     fetch(`${API_URL}/user/${currentUsername}`, {
@@ -284,9 +273,6 @@ function App() {
 
   const t = TEXTS[lang];
 
-  // Dil değiştiğinde <html lang> ve sekme başlığı da güncellensin — WCAG 3.1.1 (Language of Page)
-  // uyarınca, sayfa içeriği İngilizce'ye geçtiğinde lang="tr" olarak kalması ekran okuyucuların
-  // yanlış telaffuz/dil motoru kullanmasına yol açıyordu.
   useEffect(() => {
     document.documentElement.lang = lang;
     document.title = t.appName;
@@ -317,8 +303,8 @@ function App() {
 
   const handleRegister = async () => {
     if (isRegistering) return;
-    const { username, password, confirm, fullName, email, securityAnswer } = registerData;
-    if (!username.trim() || !password || !confirm || !fullName.trim() || !email.trim() || !securityAnswer.trim()) {
+    const { username, password, confirm, fullName, email } = registerData;
+    if (!username.trim() || !password || !confirm || !fullName.trim() || !email.trim()) {
       showToast(t.fillAllFields, 'warning'); return;
     }
     if (password !== confirm) { showToast(t.errPasswordMismatch, 'warning'); return; }
@@ -330,7 +316,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username.trim(), password, fullName: fullName.trim(), email: email.trim(), securityAnswer: securityAnswer.trim()
+          username: username.trim(), password, fullName: fullName.trim(), email: email.trim()
         })
       });
       if (res.status === 409) { showToast(t.errUsernameTaken, 'error'); return; }
@@ -338,7 +324,7 @@ function App() {
 
       showToast(t.registerSuccess, 'success');
       setLoginData({ user: username.trim(), pass: '' });
-      setRegisterData({ username: '', password: '', confirm: '', fullName: '', email: '', securityAnswer: '' });
+      setRegisterData({ username: '', password: '', confirm: '', fullName: '', email: '' });
       setAuthView('login');
     } catch (e) {
       showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
@@ -347,20 +333,20 @@ function App() {
     }
   };
 
+  // Adım 1: e-postaya doğrulama kodu gönder
   const handleForgotVerify = async () => {
     if (isVerifying) return;
+    if (!forgotData.email.trim()) { showToast(t.fillAllFields, 'warning'); return; }
     setIsVerifying(true);
     try {
-      const res = await fetch(`${API_URL}/forgot/verify`, {
+      const res = await fetch(`${API_URL}/forgot/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: forgotData.username.trim(), securityAnswer: forgotData.securityAnswer.trim()
-        })
+        body: JSON.stringify({ email: forgotData.email.trim() })
       });
       if (res.status === 404) { showToast(t.errUserNotFound, 'error'); return; }
-      if (res.status === 401) { showToast(t.errWrongAnswer, 'error'); return; }
-      if (!res.ok) throw new Error('verify failed');
+      if (!res.ok) throw new Error('request failed');
+      showToast(t.codeSentSuccess, 'success');
       setForgotStep(2);
     } catch (e) {
       showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
@@ -369,9 +355,31 @@ function App() {
     }
   };
 
+    // Adım 2: kullanıcının girdiği kodu doğrula (şifreyi henüz değiştirmeden)
+  const handleForgotCheckCode = async () => {
+    if (isCheckingCode) return;
+    if (!forgotData.code.trim()) { showToast(t.fillAllFields, 'warning'); return; }
+    setIsCheckingCode(true);
+    try {
+      const res = await fetch(`${API_URL}/forgot/verify-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotData.email.trim(), code: forgotData.code.trim() })
+      });
+      if (res.status === 401) { showToast(t.errWrongCode, 'error'); return; }
+      if (!res.ok) throw new Error('verify-code failed');
+      setForgotStep(3);
+    } catch (e) {
+      showToast(lang === 'tr' ? CONN_ERROR_TR : CONN_ERROR_EN, 'error');
+    } finally {
+      setIsCheckingCode(false);
+    }
+  };
+
+  // Adım 3: kod zaten doğrulandı, şimdi yeni şifreyi kaydet
   const handleForgotReset = async () => {
     if (isResetting) return;
-    const { username, newPassword, confirm } = forgotData;
+    const { email, code, newPassword, confirm } = forgotData;
     if (!newPassword || newPassword !== confirm) { showToast(t.errPasswordMismatch, 'warning'); return; }
     if (newPassword.length < 3) { showToast(t.errPasswordTooShort, 'warning'); return; }
 
@@ -380,13 +388,14 @@ function App() {
       const res = await fetch(`${API_URL}/forgot/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), newPassword })
+        body: JSON.stringify({ email: email.trim(), code: code.trim(), newPassword })
       });
+      if (res.status === 401) { showToast(t.errWrongCode, 'error'); return; }
       if (!res.ok) throw new Error('reset failed');
 
       showToast(t.passwordResetSuccess, 'success');
-      setLoginData({ user: username.trim(), pass: '' });
-      setForgotData({ username: '', securityAnswer: '', newPassword: '', confirm: '' });
+      setLoginData({ user: '', pass: '' });
+      setForgotData({ email: '', code: '', newPassword: '', confirm: '' });
       setForgotStep(1);
       setAuthView('login');
     } catch (e) {
@@ -553,8 +562,6 @@ function App() {
 
   const netWorth = assetAllocation.reduce((sum, r) => sum + r.value, 0);
 
-  // Bu ayın net değişimini (gelir - gider) geçen ayla kıyaslar; Dashboard'daki TrendBadge için.
-  // Yeterli veri yoksa (geçen ay hiç işlem yoksa) null döner ve rozet hiç gösterilmez.
   const balanceTrend = useMemo(() => {
     const now = new Date();
     const thisKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -597,6 +604,8 @@ function App() {
           setForgotData={setForgotData}
           handleForgotVerify={handleForgotVerify}
           verifyLoading={isVerifying}
+          handleForgotCheckCode={handleForgotCheckCode}
+          checkCodeLoading={isCheckingCode}
           handleForgotReset={handleForgotReset}
           resetLoading={isResetting}
         />
@@ -606,10 +615,6 @@ function App() {
   }
 
   if (isLoadingData) {
-    // Tek bir dönen spinner yerine, Dashboard'un gerçek şeklini taklit eden bir iskelet gösteriyoruz —
-    // kullanıcı "bir şeyler yükleniyor" değil "dashboard'um birazdan burada olacak" hissini alıyor,
-    // algılanan performans artıyor (Linear/Notion/GitHub'ta yaygın kalıp). aria-busy ile ekran okuyucuya
-    // da bu alanın henüz hazır olmadığı bildiriliyor.
     return (
       <div className={isDarkMode ? 'dark' : ''}>
         <div

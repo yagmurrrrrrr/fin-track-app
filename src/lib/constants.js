@@ -58,15 +58,15 @@ export const TEXTS = {
     lastUpdate: "Son güncelleme",
     loginTitle: "Giriş Yap", registerTitle: "Kayıt Ol", fullNameLabel: "Ad Soyad", usernameLabel: "Kullanıcı Adı",
     passwordLabel: "Şifre", confirmPasswordLabel: "Şifre (Tekrar)",
-    securityQuestion: "Güvenlik Sorusu: Doğduğunuz şehir?", securityAnswerLabel: "Cevap",
     haveAccount: "Zaten hesabın var mı? Giriş yap", noAccount: "Hesabın yok mu? Kayıt ol",
     forgotPassword: "Şifremi Unuttum", forgotTitle: "Şifremi Unuttum", verifyBtn: "Doğrula",
+    sendCodeBtn: "Kod Gönder", codeLabel: "Doğrulama Kodu", codeSentSuccess: "Doğrulama kodu e-postana gönderildi.",
     newPasswordLabel: "Yeni Şifre", confirmNewPasswordLabel: "Yeni Şifre (Tekrar)", resetPasswordBtn: "Şifreyi Sıfırla",
     backToLogin: "Girişe Dön", changePassword: "Şifre Değiştir", changePasswordTitle: "Şifre Değiştir",
     currentPasswordLabel: "Mevcut Şifre", updatePasswordBtn: "Şifreyi Güncelle",
     errUsernameTaken: "Bu kullanıcı adı zaten alınmış.", errPasswordMismatch: "Şifreler eşleşmiyor.",
-    errPasswordTooShort: "Şifre en az 3 karakter olmalı.", errUserNotFound: "Kullanıcı bulunamadı.",
-    errWrongAnswer: "Güvenlik sorusu cevabı yanlış.", errWrongCurrentPassword: "Mevcut şifre yanlış.",
+    errPasswordTooShort: "Şifre en az 3 karakter olmalı.", errUserNotFound: "Bu e-posta ile kayıtlı kullanıcı bulunamadı.",
+    errWrongCode: "Kod yanlış veya süresi dolmuş.", errWrongCurrentPassword: "Mevcut şifre yanlış.",
     registerSuccess: "Kayıt başarılı! Şimdi giriş yapabilirsin.", passwordResetSuccess: "Şifren güncellendi, giriş yapabilirsin.",
     passwordUpdated: "Şifre güncellendi!", fillAllFields: "Lütfen tüm alanları doldurun.", updated: "Güncellendi!",
     appName: "FIN-TRACK", appTagline: "Kişisel finans takibi",
@@ -112,15 +112,15 @@ export const TEXTS = {
     lastUpdate: "Last update",
     loginTitle: "Log In", registerTitle: "Register", fullNameLabel: "Full Name", usernameLabel: "Username",
     passwordLabel: "Password", confirmPasswordLabel: "Confirm Password",
-    securityQuestion: "Security question: What city were you born in?", securityAnswerLabel: "Answer",
     haveAccount: "Already have an account? Log in", noAccount: "Don't have an account? Register",
     forgotPassword: "Forgot Password", forgotTitle: "Forgot Password", verifyBtn: "Verify",
+    sendCodeBtn: "Send Code", codeLabel: "Verification Code", codeSentSuccess: "Verification code sent to your email.",
     newPasswordLabel: "New Password", confirmNewPasswordLabel: "Confirm New Password", resetPasswordBtn: "Reset Password",
     backToLogin: "Back to Login", changePassword: "Change Password", changePasswordTitle: "Change Password",
     currentPasswordLabel: "Current Password", updatePasswordBtn: "Update Password",
     errUsernameTaken: "This username is already taken.", errPasswordMismatch: "Passwords don't match.",
-    errPasswordTooShort: "Password must be at least 3 characters.", errUserNotFound: "User not found.",
-    errWrongAnswer: "Security answer is incorrect.", errWrongCurrentPassword: "Current password is incorrect.",
+    errPasswordTooShort: "Password must be at least 3 characters.", errUserNotFound: "No user found with this email.",
+    errWrongCode: "Code is incorrect or expired.", errWrongCurrentPassword: "Current password is incorrect.",
     registerSuccess: "Registered successfully! You can log in now.", passwordResetSuccess: "Password updated, you can log in now.",
     passwordUpdated: "Password updated!", fillAllFields: "Please fill in all fields.", updated: "Updated!",
     appName: "FIN-TRACK", appTagline: "Personal finance tracker",
@@ -153,8 +153,6 @@ export const TEXTS = {
 
 export const PIE_COLORS = ['#0891b2', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#22d3ee', '#84cc16', '#f97316', '#64748b'];
 
-// Dashboard ve Invest sekmelerinde birebir aynı şekilde kopyalanmıştı — Phase 4'te tekilleştirildi.
-// Emoji ikonlar (💵💶🟡) tasarım eleştirisi sonrası düz/flat sembol rozetlerine çevrildi (bkz. AssetIcon, ui.jsx).
 export const ASSET_ICONS = { dolar: '$', euro: '€', altin: 'Au' };
 export const ASSET_BADGE_BG = { dolar: 'bg-emerald-500', euro: 'bg-blue-500', altin: 'bg-amber-500' };
 export const ASSET_STYLES = {
@@ -163,19 +161,12 @@ export const ASSET_STYLES = {
   altin: 'from-amber-500/15 to-amber-500/5 border-amber-500/20'
 };
 
-// Varlık kartlarındaki rakamın ne anlama geldiği (7 adet mi, 7 TL mi?) belirsizdi — miktara
-// birim ekleyerek netleştiriyoruz. Altın gram bazlı tutulduğu için "gr" son ekiyle gösteriliyor.
 export function formatAssetAmount(asset, value) {
   if (asset === 'dolar') return `$${value}`;
   if (asset === 'euro') return `€${value}`;
   return `${value} gr`;
 }
 
-// TL tutarlarını tutarlı biçimde gösterir. Ham `.toLocaleString()` (argümansız) tarayıcının
-// varsayılan basamak ayarına göre kuruş hanesini 3+ basamağa kadar uzatabiliyordu — döviz/altın
-// alım-satımından gelen ondalıklı bir bakiye "38.205,388 ₺" gibi yanlış görünüyordu.
-// maximumFractionDigits ile en fazla 2 basamağa (kuruşa) sabitliyoruz; tam sayılarda kuruş hanesi
-// hiç gösterilmiyor (minimumFractionDigits: 0).
 export function formatTRY(value) {
   return Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
@@ -185,7 +176,6 @@ export function getDateStr() {
   return `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
 }
 
-// dd.mm.yyyy -> "yyyy-mm" anahtarı, sıralama için de kullanılır
 export function monthKeyFromDate(dateStr) {
   const parts = dateStr.split('.');
   if (parts.length !== 3) return null;
@@ -193,7 +183,6 @@ export function monthKeyFromDate(dateStr) {
   return `${y}-${m.padStart(2, '0')}`;
 }
 
-// Türkçe ondalık biçimini ("6.150,20" / "6150,20") sayıya çevirir
 export function parseTrNumber(raw) {
   if (typeof raw === 'number') return raw;
   if (typeof raw !== 'string') return null;

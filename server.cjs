@@ -3,7 +3,11 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const { Resend } = require('resend');
 const logger = require('./logger.cjs');
+
+// Şifremi unuttum akışında doğrulama kodu göndermek için kullanılıyor (resend.com, ücretsiz plan)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const app = express();
 app.use(cors());
@@ -60,8 +64,8 @@ function mapUser(row) {
 
 // ---------------- KAYIT OL ----------------
 app.post('/api/register', async (req, res) => {
-  const { username, password, fullName, email, securityAnswer } = req.body;
-  if (!username || !password || !fullName || !email || !securityAnswer) {
+  const { username, password, fullName, email } = req.body;
+  if (!username || !password || !fullName || !email) {
     return res.status(400).json({ error: 'fillAllFields' });
   }
   try {
@@ -69,11 +73,10 @@ app.post('/api/register', async (req, res) => {
     if (existing.length > 0) return res.status(409).json({ error: 'usernameTaken' });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const answerHash = await bcrypt.hash(securityAnswer.toLowerCase(), 10);
 
     const [result] = await pool.query(
-      'INSERT INTO users (username, password_hash, full_name, email, gender, security_answer_hash) VALUES (?,?,?,?,?,?)',
-      [username, passwordHash, fullName, email, 'Kadın', answerHash]
+      'INSERT INTO users (username, password_hash, full_name, email, gender) VALUES (?,?,?,?,?)',
+      [username, passwordHash, fullName, email, 'Kadın']
     );
     const userId = result.insertId;
     // Yeni hesap tamamen sıfırdan başlıyor — daha önce hiç almadığı halde 100.000 TL/dolar/euro/altına
@@ -118,20 +121,49 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ---------------- ŞİFREMİ UNUTTUM ----------------
-app.post('/api/forgot/verify', async (req, res) => {
-  const { username, securityAnswer } = req.body;
+// ---------------- ŞİFREMİ UNUTTUM (e-posta ile doğrulama kodu) ----------------
+app.post('/api/forgot/request', async (req, res) => {
+  const { email } = req.body;
   try {
-    const [rows] = await pool.query('SELECT security_answer_hash FROM users WHERE username = ?', [username]);
+    const [rows] = await pool.query('SELECT id, username FROM users WHERE email = ?', [email]);
     if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
 
-    const match = await bcrypt.compare((securityAnswer || '').toLowerCase(), rows[0].security_answer_hash || '');
-    if (!match) {
-      logger.warn('Şifremi unuttum: yanlış güvenlik sorusu cevabı', { username });
-      return res.status(401).json({ error: 'wrongAnswer' });
+    const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 haneli kod
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 dakika geçerli
+
+    await pool.query('UPDATE users SET reset_code = ?, reset_code_expires = ? WHERE id = ?', [code, expires, rows[0].id]);
+
+    await resend.emails.send({
+      from: 'Fin-Track <onboarding@resend.dev>',
+      to: email,
+      subject: 'Fin-Track Şifre Sıfırlama Kodu',
+      html: `<p>Şifreni sıfırlamak için doğrulama kodun: <strong>${code}</strong></p><p>Bu kod 15 dakika geçerlidir.</p>`
+    });
+
+    logger.info('Şifremi unuttum: doğrulama kodu gönderildi', { username: rows[0].username });
+    res.json({ success: true });
+  } catch (e) {
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
+    res.status(500).json({ error: 'serverError' });
+  }
+});
+   app.post('/api/forgot/verify-code', async (req, res) => {
+  const { email, code } = req.body;
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, username, reset_code, reset_code_expires FROM users WHERE email = ?',
+      [email]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
+
+    const user = rows[0];
+    const isExpired = !user.reset_code_expires || new Date(user.reset_code_expires) < new Date();
+    if (!user.reset_code || user.reset_code !== code || isExpired) {
+      logger.warn('Şifremi unuttum: yanlış veya süresi dolmuş kod', { username: user.username });
+      return res.status(401).json({ error: 'wrongCode' });
     }
 
-    logger.info('Şifremi unuttum: güvenlik sorusu doğrulandı', { username });
+    logger.info('Şifremi unuttum: kod doğrulandı', { username: user.username });
     res.json({ success: true });
   } catch (e) {
     logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
@@ -140,12 +172,27 @@ app.post('/api/forgot/verify', async (req, res) => {
 });
 
 app.post('/api/forgot/reset', async (req, res) => {
-  const { username, newPassword } = req.body;
+  const { email, code, newPassword } = req.body;
   try {
+    const [rows] = await pool.query(
+      'SELECT id, username, reset_code, reset_code_expires FROM users WHERE email = ?',
+      [email]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'userNotFound' });
+
+    const user = rows[0];
+    const isExpired = !user.reset_code_expires || new Date(user.reset_code_expires) < new Date();
+    if (!user.reset_code || user.reset_code !== code || isExpired) {
+      logger.warn('Şifremi unuttum: yanlış veya süresi dolmuş kod', { username: user.username });
+      return res.status(401).json({ error: 'wrongCode' });
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    const [result] = await pool.query('UPDATE users SET password_hash = ? WHERE username = ?', [passwordHash, username]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'userNotFound' });
-    logger.info('Şifre sıfırlandı (şifremi unuttum akışı)', { username });
+    await pool.query(
+      'UPDATE users SET password_hash = ?, reset_code = NULL, reset_code_expires = NULL WHERE id = ?',
+      [passwordHash, user.id]
+    );
+    logger.info('Şifre sıfırlandı (şifremi unuttum akışı)', { username: user.username });
     res.json({ success: true });
   } catch (e) {
     logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
