@@ -3,11 +3,12 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
-const { Resend } = require('resend');
+const { BrevoClient } = require('@getbrevo/brevo');
 const logger = require('./logger.cjs');
 
-// Şifremi unuttum akışında doğrulama kodu göndermek için kullanılıyor (resend.com, ücretsiz plan)
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Şifremi unuttum akışında doğrulama kodu göndermek için kullanılıyor (brevo.com, ücretsiz plan).
+const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 
 const app = express();
 app.use(cors());
@@ -133,13 +134,12 @@ app.post('/api/forgot/request', async (req, res) => {
 
     await pool.query('UPDATE users SET reset_code = ?, reset_code_expires = ? WHERE id = ?', [code, expires, rows[0].id]);
 
-    await resend.emails.send({
-      from: 'Fin-Track <onboarding@resend.dev>',
-      to: email,
+   await brevo.transactionalEmails.sendTransacEmail({
       subject: 'Fin-Track Şifre Sıfırlama Kodu',
-      html: `<p>Şifreni sıfırlamak için doğrulama kodun: <strong>${code}</strong></p><p>Bu kod 15 dakika geçerlidir.</p>`
+      htmlContent: `<p>Şifreni sıfırlamak için doğrulama kodun: <strong>${code}</strong></p><p>Bu kod 15 dakika geçerlidir.</p>`,
+      sender: { name: 'Fin-Track', email: SENDER_EMAIL },
+      to: [{ email }]
     });
-
     logger.info('Şifremi unuttum: doğrulama kodu gönderildi', { username: rows[0].username });
     res.json({ success: true });
   } catch (e) {
