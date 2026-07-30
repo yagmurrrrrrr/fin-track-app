@@ -1,16 +1,26 @@
+console.log('1. dotenv öncesi');
 require('dotenv').config();
+console.log('2. dotenv sonrası');
 const express = require('express');
+console.log('3. express yüklendi');
 const mysql = require('mysql2/promise');
+console.log('4. mysql2 yüklendi');
 const cors = require('cors');
+console.log('5. cors yüklendi');
 const bcrypt = require('bcryptjs');
+console.log('6. bcrypt yüklendi');
 const { BrevoClient } = require('@getbrevo/brevo');
+console.log('7. brevo yüklendi');
 const logger = require('./logger.cjs');
+console.log('8. logger yüklendi');
 
 // Şifremi unuttum akışında doğrulama kodu göndermek için kullanılıyor (brevo.com, ücretsiz plan).
 const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
+console.log('9. brevo client oluşturuldu');
 const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 
 const app = express();
+console.log('10. express app oluşturuldu');
 app.use(cors());
 app.use(express.json());
 
@@ -30,12 +40,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- MySQL bağlantı bilgisi: .env dosyasından (yoksa localdeki eski değerlerden) okunuyor ---
+// --- MySQL bağlantı bilgisi: .env dosyasından okunuyor ---
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Yagmur1012',
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'fintrack_db',
   decimalNumbers: true, // DECIMAL kolonları JS number olarak döner
   waitForConnections: true,
@@ -43,12 +53,19 @@ const pool = mysql.createPool({
   // Aiven gibi bulut MySQL servisleri SSL zorunlu tutuyor; DB_SSL=true ise devreye girer
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
+console.log('11. mysql pool oluşturuldu');
 
 app.get('/', (req, res) => {
   res.send('FinTrack API çalışıyor!');
 });
 
 const DEFAULT_LIMITS = { gida: 5000, kira: 15000, ulasim: 2000, teknoloji: 10000, eglence: 3000, fatura: 4000 };
+
+// Limit kontrolü yapılırken SQL sorgusunda kategori adı doğrudan kolon adı olarak
+// kullanılıyor (parametreli sorgu ile kolon adı verilemez). Bu yüzden yalnızca bu
+// sabit listedeki kategorilere izin veriyoruz — kullanıcıdan gelen rastgele bir
+// string'in SQL'e karışmasını (injection) engellemek için.
+const ALLOWED_LIMIT_CATEGORIES = ['gida', 'kira', 'ulasim', 'teknoloji', 'eglence', 'fatura'];
 
 function mapUser(row) {
   return {
@@ -62,6 +79,44 @@ function mapUser(row) {
     gender: row.gender || 'Kadın'
   };
 }
+
+// ---------------- PUSH BİLDİRİM ----------------
+// Expo'nun ücretsiz push bildirim servisine istek atar. Ekstra bir paket
+// gerektirmez (Node 18+ ile birlikte gelen global fetch kullanılıyor).
+// Token yoksa (kullanıcı bildirim izni vermemiş/giriş yapmamış) sessizce çıkar.
+async function sendPushNotification(pushToken, title, body) {
+  if (!pushToken) return;
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: pushToken,
+        sound: 'default',
+        title,
+        body,
+      }),
+    });
+  } catch (e) {
+    logger.error('Push bildirimi gönderilemedi', { message: e.message });
+  }
+}
+
+// Mobil uygulama giriş yapınca Expo push token'ını burada kaydediyor.
+app.put('/api/user/:username/push-token', async (req, res) => {
+  const { pushToken } = req.body;
+  try {
+    await pool.query('UPDATE users SET push_token = ? WHERE username = ?', [pushToken, req.params.username]);
+    res.json({ success: true });
+  } catch (e) {
+    logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
+    res.status(500).json({ error: 'serverError' });
+  }
+});
 
 // ---------------- KAYIT OL ----------------
 app.post('/api/register', async (req, res) => {
@@ -147,7 +202,8 @@ app.post('/api/forgot/request', async (req, res) => {
     res.status(500).json({ error: 'serverError' });
   }
 });
-   app.post('/api/forgot/verify-code', async (req, res) => {
+
+app.post('/api/forgot/verify-code', async (req, res) => {
   const { email, code } = req.body;
   try {
     const [rows] = await pool.query(
@@ -330,14 +386,51 @@ app.get('/api/transactions/:username', async (req, res) => {
 app.post('/api/transactions/:username', async (req, res) => {
   const { desc, amount, cat, date } = req.body;
   try {
-    const [userRows] = await pool.query('SELECT id FROM users WHERE username = ?', [req.params.username]);
+    const [userRows] = await pool.query('SELECT id, push_token FROM users WHERE username = ?', [req.params.username]);
     if (userRows.length === 0) return res.status(404).json({ error: 'userNotFound' });
+
+    const userId = userRows[0].id;
+    const pushToken = userRows[0].push_token;
 
     const [result] = await pool.query(
       'INSERT INTO transactions (user_id, desc_text, amount, category, tx_date) VALUES (?,?,?,?,?)',
-      [userRows[0].id, desc, amount, cat, date]
+      [userId, desc, amount, cat, date]
     );
     logger.info('Yeni işlem eklendi', { username: req.params.username, transactionId: result.insertId, amount, category: cat });
+
+    // Bildirim 1: her yeni işlemde bilgilendirme gönder. Bu, aynı hesabı birden
+    // fazla cihazda (web + mobil) kullananlar için özellikle faydalı — bir yerden
+    // eklenen işlem diğer cihazda anlık bildirim olarak görünür.
+    const formattedAmount = `${Number(amount) > 0 ? '+' : ''}${amount} ₺`;
+    sendPushNotification(pushToken, 'Yeni İşlem Eklendi', `${desc}: ${formattedAmount}`);
+
+    // Bildirim 2: eğer bu bir gider ise ve kategori limiti bu işlemle birlikte
+    // aşıldıysa ayrıca uyarı gönder. Kategori adı SQL'de kolon adı olarak
+    // kullanıldığından, güvenlik için sadece izin verilen sabit listedeki
+    // kategorilerde bu kontrol çalıştırılıyor.
+    if (Number(amount) < 0 && ALLOWED_LIMIT_CATEGORIES.includes(cat)) {
+      const [limitRows] = await pool.query(
+        `SELECT \`${cat}\` AS limitValue FROM spending_limits WHERE user_id = ?`,
+        [userId]
+      );
+      const limitValue = Number(limitRows[0]?.limitValue ?? 0);
+
+      const [spentRows] = await pool.query(
+        `SELECT COALESCE(SUM(ABS(amount)), 0) AS totalSpent FROM transactions
+         WHERE user_id = ? AND category = ? AND amount < 0`,
+        [userId, cat]
+      );
+      const totalSpent = Number(spentRows[0]?.totalSpent ?? 0);
+
+      if (limitValue > 0 && totalSpent >= limitValue) {
+        sendPushNotification(
+          pushToken,
+          'Limit Aşıldı ⚠️',
+          `${cat} kategorisinde belirlediğin limiti aştın.`
+        );
+      }
+    }
+
     res.json({ id: result.insertId });
   } catch (e) {
     logger.error('Sunucu hatası', { message: e.message, stack: e.stack });
@@ -361,6 +454,8 @@ app.delete('/api/transactions/:username/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
+console.log('12. listen çağrılıyor');
 app.listen(PORT, () => {
+  console.log('13. listen callback çalıştı');
   logger.info(`FinTrack API başlatıldı`, { port: PORT });
 });
